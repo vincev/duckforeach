@@ -24,18 +24,16 @@ jobs:
 
       matrix:
         os: [ubuntu-24.04]
-        # gcc-13 release build runs out of memory on github action disable for now.
-        # c_compiler: [gcc, clang]
-        c_compiler: [clang]
+        c_compiler: [gcc, clang]
         include:
           - os: ubuntu-24.04
             c_compiler: clang
             cpp_compiler: clang++
             build_type: Release
-          # - os: ubuntu-24.04
-          #   c_compiler: gcc
-          #   cpp_compiler: g++
-          #   build_type: Release
+          - os: ubuntu-24.04
+            c_compiler: gcc
+            cpp_compiler: g++
+            build_type: Release
 
     steps:
       - uses: actions/checkout@v4
