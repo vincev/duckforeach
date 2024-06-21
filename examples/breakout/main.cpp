@@ -34,10 +34,11 @@ int main(int argc, char* argv[])
         duckdb::DuckDB db{dbPath.c_str()};
         duckdb::Connection con{db};
 
-        auto qResult{con.Query("select symbol, open, close from prices limit 5")};
+        auto qResult{con.Query("select timestamp, symbol, open, close from prices limit 5")};
         duckforeach::DuckForEach forEach{std::move(qResult)};
-        forEach([](const std::string& sym, double open, double close) {
-            std::cout << sym << " " << open << " " << close << std::endl;
+        forEach([](const std::string& ts, const std::optional<std::string>& sym, double open,
+                   double close) {
+            std::cout << ts << " " << sym.value() << " " << open << " " << close << std::endl;
         });
     }
     catch (const std::exception& ex)

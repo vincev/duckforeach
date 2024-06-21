@@ -7,7 +7,6 @@
 #include <chrono>
 #include <format>
 #include <functional>
-#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <tuple>
@@ -16,7 +15,7 @@
 namespace duckforeach {
 
 namespace details {
-template <typename... Cols, typename DbRow> auto fromDbRow(const DbRow& dbRow);
+template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow);
 }
 
 class DuckForEach
@@ -42,13 +41,12 @@ private:
 
         if (sizeof...(Args) != nCols)
             throw std::invalid_argument{
-                std::format("for_each error: result has {} columns but passed function has {}",
-                            nCols, sizeof...(Args))};
+                std::format("Invalid number of arguments, function has {} but query result has {}",
+                            sizeof...(Args), nCols)};
 
         for (auto rowsIt{mResult->begin()}; rowsIt != mResult->end(); ++rowsIt)
         {
-            auto args{details::fromDbRow<Args...>(*rowsIt)};
-            std::apply(f, args);
+            std::apply(f, details::castRow<Args...>(*rowsIt));
         }
     }
 
@@ -57,102 +55,168 @@ private:
 
 namespace details {
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, std::string& outVal)
+template <typename V> class ValueCast
 {
-    if (dbVal.type().id() != duckdb::LogicalTypeId::VARCHAR)
-        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                " to std::string",
-                                                colNum, dbVal.type().ToString())};
-
-    if (dbVal.IsNull())
-        throw std::invalid_argument{std::format("Cannot convert null value at column {} to "
-                                                "std::string use std::optional for this column",
-                                                colNum)};
-
-    outVal = dbVal.GetValue<std::string>();
-}
-
-void setValue(std::size_t colNum, duckdb::Value& dbVal, std::optional<std::string>& outVal)
-{
-    if (dbVal.type().id() != duckdb::LogicalTypeId::VARCHAR)
-        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                " to std::string",
-                                                colNum, dbVal.type().ToString())};
-
-    if (dbVal.IsNull())
-        outVal = std::nullopt;
-    else
-        outVal = dbVal.GetValue<std::string>();
-}
-
-template <typename T>
-void setNumericValue(std::size_t colNum, const char* typeName, duckdb::Value& dbVal, T& outVal)
-{
-    if (dbVal.IsNull())
-        throw std::invalid_argument{std::format("Cannot convert null value at column {} to "
-                                                "{} use std::optional for this column",
-                                                colNum, typeName)};
-    try
+public:
+    ValueCast(std::size_t colNum, duckdb::Value& dbVal, V& v)
     {
-        outVal = dbVal.GetValue<T>();
+        cast(colNum, dbVal, v);
     }
-    catch (const std::exception& e)
+
+private:
+    void cast(std::size_t colNum, duckdb::Value& dbVal, int8_t& outVal)
     {
-        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                " to {}",
-                                                colNum, dbVal.type().ToString(), typeName)};
+        cast(colNum, "int8", dbVal, outVal);
     }
-}
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, int8_t& outVal)
-{
-    setNumericValue(colNum, "int8", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, int16_t& outVal)
+    {
+        cast(colNum, "int16", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, int16_t& outVal)
-{
-    setNumericValue(colNum, "int16", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, int32_t& outVal)
+    {
+        cast(colNum, "int32", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, int32_t& outVal)
-{
-    setNumericValue(colNum, "int32", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, int64_t& outVal)
+    {
+        cast(colNum, "int64", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, int64_t& outVal)
-{
-    setNumericValue(colNum, "int64", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, uint8_t& outVal)
+    {
+        cast(colNum, "uint8", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, uint8_t& outVal)
-{
-    setNumericValue(colNum, "uint8", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, uint16_t& outVal)
+    {
+        cast(colNum, "uint16", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, uint16_t& outVal)
-{
-    setNumericValue(colNum, "uint16", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, uint32_t& outVal)
+    {
+        cast(colNum, "uint32", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, uint32_t& outVal)
-{
-    setNumericValue(colNum, "uint32", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, uint64_t& outVal)
+    {
+        cast(colNum, "uint64", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, uint64_t& outVal)
-{
-    setNumericValue(colNum, "uint64", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, double& outVal)
+    {
+        cast(colNum, "double", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, double& outVal)
-{
-    setNumericValue(colNum, "double", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, float& outVal)
+    {
+        cast(colNum, "float", dbVal, outVal);
+    }
 
-void setValue(std::size_t colNum, duckdb::Value& dbVal, float& outVal)
-{
-    setNumericValue(colNum, "float", dbVal, outVal);
-}
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::string& outVal)
+    {
+        cast(colNum, "string", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int8_t>& outVal)
+    {
+        castOptional(colNum, "int8", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int16_t>& outVal)
+    {
+        castOptional(colNum, "int16", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int32_t>& outVal)
+    {
+        castOptional(colNum, "int32", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int64_t>& outVal)
+    {
+        castOptional(colNum, "int64", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint8_t>& outVal)
+    {
+        castOptional(colNum, "uint8", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint16_t>& outVal)
+    {
+        castOptional(colNum, "uint16", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint32_t>& outVal)
+    {
+        castOptional(colNum, "uint32", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint64_t>& outVal)
+    {
+        castOptional(colNum, "uint64", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<double>& outVal)
+    {
+        castOptional(colNum, "double", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<float>& outVal)
+    {
+        castOptional(colNum, "float", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<std::string>& outVal)
+    {
+        castOptional(colNum, "string", dbVal, outVal);
+    }
+
+    template <typename T>
+    void cast(std::size_t colNum, const char* typeName, duckdb::Value& dbVal, T& outVal)
+    {
+        if (dbVal.IsNull())
+            throw std::invalid_argument{std::format("Cannot convert null value at column {} to "
+                                                    "{} use std::optional for this column",
+                                                    colNum, typeName)};
+        try
+        {
+            outVal = dbVal.GetValue<T>();
+        }
+        catch (const std::exception& e)
+        {
+            throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                    " to {}",
+                                                    colNum, dbVal.type().ToString(), typeName)};
+        }
+    }
+
+    template <typename T>
+    void castOptional(std::size_t colNum,
+                      const char* typeName,
+                      duckdb::Value& dbVal,
+                      std::optional<T>& outVal)
+    {
+        if (dbVal.IsNull())
+            outVal = std::nullopt;
+        else
+        {
+            try
+            {
+                outVal = dbVal.GetValue<T>();
+            }
+            catch (const std::exception& e)
+            {
+                throw std::invalid_argument{
+                    std::format("Cannot convert value at column {} of type {}"
+                                " to {}",
+                                colNum, dbVal.type().ToString(), typeName)};
+            }
+        }
+    }
+};
 
 template <std::size_t ColIdx, typename DbRow, typename... Cols>
 void castValue(const DbRow& dbRow, std::tuple<Cols...>& outRow)
@@ -160,13 +224,13 @@ void castValue(const DbRow& dbRow, std::tuple<Cols...>& outRow)
     auto dbVal{dbRow.iterator.chunk->GetValue(ColIdx, dbRow.row)};
     auto& outVal{std::get<ColIdx>(outRow)};
 
-    setValue(ColIdx + 1, dbVal, outVal);
+    ValueCast{ColIdx + 1, dbVal, outVal};
 
     if constexpr (ColIdx + 1 < sizeof...(Cols))
         castValue<ColIdx + 1>(dbRow, outRow);
 }
 
-template <typename... Cols, typename DbRow> auto fromDbRow(const DbRow& dbRow)
+template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow)
 {
     std::tuple<std::decay_t<Cols>...> outRow;
     castValue<0>(dbRow, outRow);
