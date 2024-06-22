@@ -64,7 +64,69 @@ public:
     }
 
 private:
+    void cast(std::size_t colNum, duckdb::Value& dbVal, bool& outVal)
+    {
+        cast(colNum, "bool", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<bool>& outVal)
+    {
+        cast(colNum, "bool", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, char& outVal)
+    {
+        if (dbVal.type().id() == duckdb::LogicalTypeId::TINYINT)
+        {
+            int8_t v;
+            cast(colNum, "char", dbVal, v);
+            outVal = static_cast<char>(v);
+        }
+        else if (dbVal.type().id() == duckdb::LogicalTypeId::UTINYINT)
+        {
+            uint8_t v;
+            cast(colNum, "char", dbVal, v);
+            outVal = static_cast<char>(v);
+        }
+        else
+        {
+            throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                    " to char",
+                                                    colNum, dbVal.type().ToString())};
+        }
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<char>& outVal)
+    {
+        outVal.reset();
+        if (dbVal.type().id() == duckdb::LogicalTypeId::TINYINT)
+        {
+            std::optional<int8_t> v;
+            cast(colNum, "char", dbVal, v);
+            if (v)
+                outVal = static_cast<char>(*v);
+        }
+        else if (dbVal.type().id() == duckdb::LogicalTypeId::UTINYINT)
+        {
+            std::optional<uint8_t> v;
+            cast(colNum, "char", dbVal, v);
+            if (v)
+                outVal = static_cast<char>(*v);
+        }
+        else
+        {
+            throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                    " to char",
+                                                    colNum, dbVal.type().ToString())};
+        }
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, int8_t& outVal)
+    {
+        cast(colNum, "int8", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int8_t>& outVal)
     {
         cast(colNum, "int8", dbVal, outVal);
     }
@@ -74,7 +136,17 @@ private:
         cast(colNum, "int16", dbVal, outVal);
     }
 
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int16_t>& outVal)
+    {
+        cast(colNum, "int16", dbVal, outVal);
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, int32_t& outVal)
+    {
+        cast(colNum, "int32", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int32_t>& outVal)
     {
         cast(colNum, "int32", dbVal, outVal);
     }
@@ -84,7 +156,17 @@ private:
         cast(colNum, "int64", dbVal, outVal);
     }
 
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int64_t>& outVal)
+    {
+        cast(colNum, "int64", dbVal, outVal);
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, uint8_t& outVal)
+    {
+        cast(colNum, "uint8", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint8_t>& outVal)
     {
         cast(colNum, "uint8", dbVal, outVal);
     }
@@ -94,7 +176,17 @@ private:
         cast(colNum, "uint16", dbVal, outVal);
     }
 
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint16_t>& outVal)
+    {
+        cast(colNum, "uint16", dbVal, outVal);
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, uint32_t& outVal)
+    {
+        cast(colNum, "uint32", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint32_t>& outVal)
     {
         cast(colNum, "uint32", dbVal, outVal);
     }
@@ -104,7 +196,17 @@ private:
         cast(colNum, "uint64", dbVal, outVal);
     }
 
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint64_t>& outVal)
+    {
+        cast(colNum, "uint64", dbVal, outVal);
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, double& outVal)
+    {
+        cast(colNum, "double", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<double>& outVal)
     {
         cast(colNum, "double", dbVal, outVal);
     }
@@ -114,64 +216,19 @@ private:
         cast(colNum, "float", dbVal, outVal);
     }
 
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<float>& outVal)
+    {
+        cast(colNum, "float", dbVal, outVal);
+    }
+
     void cast(std::size_t colNum, duckdb::Value& dbVal, std::string& outVal)
     {
         cast(colNum, "string", dbVal, outVal);
     }
 
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int8_t>& outVal)
-    {
-        castOptional(colNum, "int8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int16_t>& outVal)
-    {
-        castOptional(colNum, "int16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int32_t>& outVal)
-    {
-        castOptional(colNum, "int32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int64_t>& outVal)
-    {
-        castOptional(colNum, "int64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint8_t>& outVal)
-    {
-        castOptional(colNum, "uint8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint16_t>& outVal)
-    {
-        castOptional(colNum, "uint16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint32_t>& outVal)
-    {
-        castOptional(colNum, "uint32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint64_t>& outVal)
-    {
-        castOptional(colNum, "uint64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<double>& outVal)
-    {
-        castOptional(colNum, "double", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<float>& outVal)
-    {
-        castOptional(colNum, "float", dbVal, outVal);
-    }
-
     void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<std::string>& outVal)
     {
-        castOptional(colNum, "string", dbVal, outVal);
+        cast(colNum, "string", dbVal, outVal);
     }
 
     template <typename T>
@@ -194,10 +251,8 @@ private:
     }
 
     template <typename T>
-    void castOptional(std::size_t colNum,
-                      const char* typeName,
-                      duckdb::Value& dbVal,
-                      std::optional<T>& outVal)
+    void
+    cast(std::size_t colNum, const char* typeName, duckdb::Value& dbVal, std::optional<T>& outVal)
     {
         if (dbVal.IsNull())
             outVal = std::nullopt;

@@ -11,4 +11,5 @@ find_package(Threads REQUIRED)
 
 add_subdirectory(examples)
 add_subdirectory(src)
+add_subdirectory(tests)
 add_subdirectory(third_party)
