@@ -4,6 +4,7 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR YES)
 add_executable(duckforeach_tests
     main.cpp
     int_types.cpp
+    float_types.cpp
 )
 
 target_link_libraries(duckforeach_tests
