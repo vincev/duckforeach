@@ -4,12 +4,10 @@
 
 #include "duckforeach.hpp"
 
-#include <format>
-#include <iostream>
 #include <limits>
 #include <unordered_set>
 
-using namespace duckdb;
+namespace ddb = duckdb;
 namespace dfe = duckforeach;
 
 TEST_CASE("Test int8, uint8, char")
@@ -18,8 +16,8 @@ TEST_CASE("Test int8, uint8, char")
     using UInt = uint8_t;
     constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
 
-    DuckDB db;
-    Connection con{db};
+    ddb::DuckDB db;
+    ddb::Connection con{db};
 
     auto res{con.Query("CREATE TABLE t (uval UTINYINT, sval TINYINT)")};
     REQUIRE_FALSE(res->HasError());
@@ -27,7 +25,7 @@ TEST_CASE("Test int8, uint8, char")
     std::unordered_set<SInt> sints;
     std::unordered_set<UInt> uints;
 
-    Appender appender{con, "t"};
+    ddb::Appender appender{con, "t"};
     for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
     {
         auto sval{static_cast<SInt>(i)};
@@ -107,6 +105,10 @@ TEST_CASE("Test int8, uint8, char")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
+        // This should throw as plain types cannot handle nulls.
+        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
+        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+
         size_t numNulls{0};
         size_t numRows{0};
 
@@ -133,8 +135,8 @@ TEST_CASE("Test int16, uint16")
     using UInt = uint16_t;
     constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
 
-    DuckDB db;
-    Connection con{db};
+    ddb::DuckDB db;
+    ddb::Connection con{db};
 
     auto res{con.Query("CREATE TABLE t (uval USMALLINT, sval SMALLINT)")};
     REQUIRE_FALSE(res->HasError());
@@ -142,7 +144,7 @@ TEST_CASE("Test int16, uint16")
     std::unordered_set<SInt> sints;
     std::unordered_set<UInt> uints;
 
-    Appender appender{con, "t"};
+    ddb::Appender appender{con, "t"};
     for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
     {
         auto sval{static_cast<SInt>(i)};
@@ -192,6 +194,10 @@ TEST_CASE("Test int16, uint16")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
+        // This should throw as plain types cannot handle nulls.
+        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
+        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+
         size_t numNulls{0};
         size_t numRows{0};
 
@@ -218,8 +224,8 @@ TEST_CASE("Test int32, uint32")
     using UInt = uint32_t;
     constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
 
-    DuckDB db;
-    Connection con{db};
+    ddb::DuckDB db;
+    ddb::Connection con{db};
 
     auto res{con.Query("CREATE TABLE t (uval UINTEGER, sval INTEGER)")};
     REQUIRE_FALSE(res->HasError());
@@ -227,7 +233,7 @@ TEST_CASE("Test int32, uint32")
     std::unordered_set<SInt> sints;
     std::unordered_set<UInt> uints;
 
-    Appender appender{con, "t"};
+    ddb::Appender appender{con, "t"};
     for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
     {
         auto sval{static_cast<SInt>(i)};
@@ -277,6 +283,10 @@ TEST_CASE("Test int32, uint32")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
+        // This should throw as plain types cannot handle nulls.
+        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
+        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+
         size_t numNulls{0};
         size_t numRows{0};
 
@@ -303,8 +313,8 @@ TEST_CASE("Test int64, uint64")
     using UInt = uint64_t;
     constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
 
-    DuckDB db;
-    Connection con{db};
+    ddb::DuckDB db;
+    ddb::Connection con{db};
 
     auto res{con.Query("CREATE TABLE t (uval UBIGINT, sval BIGINT)")};
     REQUIRE_FALSE(res->HasError());
@@ -312,7 +322,7 @@ TEST_CASE("Test int64, uint64")
     std::unordered_set<SInt> sints;
     std::unordered_set<UInt> uints;
 
-    Appender appender{con, "t"};
+    ddb::Appender appender{con, "t"};
     for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
     {
         auto sval{static_cast<SInt>(i)};
@@ -361,6 +371,10 @@ TEST_CASE("Test int64, uint64")
     SUBCASE("handle nulls using optional parameters")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
+
+        // This should throw as plain types cannot handle nulls.
+        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
+        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
 
         size_t numNulls{0};
         size_t numRows{0};

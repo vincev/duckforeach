@@ -4,18 +4,15 @@
 
 #include "duckforeach.hpp"
 
-#include <format>
-#include <iostream>
-#include <limits>
 #include <unordered_set>
 
-using namespace duckdb;
+namespace ddb = duckdb;
 namespace dfe = duckforeach;
 
 TEST_CASE("Test floating types")
 {
-    DuckDB db;
-    Connection con{db};
+    ddb::DuckDB db;
+    ddb::Connection con{db};
 
     auto res{con.Query("CREATE TABLE t (dval DOUBLE, fval FLOAT)")};
     REQUIRE_FALSE(res->HasError());
@@ -23,7 +20,7 @@ TEST_CASE("Test floating types")
     std::unordered_set<double> doubles;
     std::unordered_set<float> floats;
 
-    Appender appender{con, "t"};
+    ddb::Appender appender{con, "t"};
     for (int i{-500}; i < 500; ++i)
     {
         auto dval{static_cast<double>(i)};
@@ -66,6 +63,10 @@ TEST_CASE("Test floating types")
     SUBCASE("handle nulls using optional parameters")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20.0), (10.0,null);")->HasError());
+
+        // This should throw as plain types cannot handle nulls.
+        dfe::DuckForEach dfNoOpt{con.Query("select dval, fval from t")};
+        CHECK_THROWS(dfNoOpt([&](double uval, float sval) {}));
 
         size_t numNulls{0};
         size_t numRows{0};

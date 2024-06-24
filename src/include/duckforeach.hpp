@@ -24,6 +24,9 @@ public:
     DuckForEach(std::unique_ptr<duckdb::QueryResult> result)
         : mResult{std::move(result)}
     {
+        if (!mResult)
+            throw std::invalid_argument{"Invalid query result."};
+
         if (mResult->HasError())
             throw std::runtime_error(std::format("Query error {}", mResult->GetError()));
     }
@@ -51,6 +54,15 @@ private:
     }
 
     std::unique_ptr<duckdb::QueryResult> mResult;
+};
+
+using year_month_day = std::chrono::year_month_day;
+using hh_mm_ss = std::chrono::hh_mm_ss<std::chrono::nanoseconds>;
+
+struct Timestamp
+{
+    year_month_day ymd;
+    hh_mm_ss hms;
 };
 
 namespace details {
@@ -229,6 +241,142 @@ private:
     void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<std::string>& outVal)
     {
         cast(colNum, "string", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::date_t& outVal)
+    {
+        cast(colNum, "date", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::date_t>& outVal)
+    {
+        cast(colNum, "date", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::dtime_t& outVal)
+    {
+        cast(colNum, "time", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::dtime_t>& outVal)
+    {
+        cast(colNum, "time", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::timestamp_t& outVal)
+    {
+        cast(colNum, "timestamp", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::timestamp_t>& outVal)
+    {
+        cast(colNum, "timestamp", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::interval_t& outVal)
+    {
+        cast(colNum, "interval", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::interval_t>& outVal)
+    {
+        cast(colNum, "interval", dbVal, outVal);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, Timestamp& outVal)
+    {
+        namespace ddb = duckdb;
+
+        ddb::timestamp_t ddbts;
+        cast(colNum, "Timestamp", dbVal, ddbts);
+
+        ddb::date_t ddbDate;
+        ddb::dtime_t ddbTime;
+        ddb::Timestamp::Convert(ddbts, ddbDate, ddbTime);
+
+        outVal.ymd = cast(ddbDate);
+        outVal.hms = cast(ddbTime);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<Timestamp>& outVal)
+    {
+        namespace ddb = duckdb;
+
+        std::optional<ddb::timestamp_t> ddbts;
+        cast(colNum, "Timestamp", dbVal, ddbts);
+        if (ddbts)
+        {
+            Timestamp ts;
+            ddb::date_t ddbDate;
+            ddb::dtime_t ddbTime;
+            ddb::Timestamp::Convert(*ddbts, ddbDate, ddbTime);
+            outVal = Timestamp{.ymd = cast(ddbDate), .hms = cast(ddbTime)};
+        }
+        else
+        {
+            outVal = std::nullopt;
+        }
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, year_month_day& outVal)
+    {
+        duckdb::date_t ddbDate;
+        cast(colNum, "year_month_day", dbVal, ddbDate);
+        outVal = cast(ddbDate);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<year_month_day>& outVal)
+    {
+        std::optional<duckdb::date_t> ddbDate;
+        cast(colNum, "year_month_day", dbVal, ddbDate);
+        if (ddbDate)
+            outVal = cast(*ddbDate);
+        else
+            outVal = std::nullopt;
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, hh_mm_ss& outVal)
+    {
+        duckdb::dtime_t ddbTime;
+        cast(colNum, "hh_mm_ss", dbVal, ddbTime);
+        outVal = cast(ddbTime);
+    }
+
+    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<hh_mm_ss>& outVal)
+    {
+        std::optional<duckdb::dtime_t> ddbTime;
+        cast(colNum, "hh_mm_ss", dbVal, ddbTime);
+        if (ddbTime)
+            outVal = cast(*ddbTime);
+        else
+            outVal = std::nullopt;
+    }
+
+    year_month_day cast(duckdb::date_t ddbDate)
+    {
+        namespace chr = std::chrono;
+        namespace ddb = duckdb;
+
+        return chr::year_month_day{
+            chr::year(ddb::Date::ExtractYear(ddbDate)),
+            chr::month(ddb::Date::ExtractMonth(ddbDate)),
+            chr::day(ddb::Date::ExtractDay(ddbDate)),
+        };
+    }
+
+    hh_mm_ss cast(duckdb::dtime_t ddbTime)
+    {
+        namespace chr = std::chrono;
+        namespace ddb = duckdb;
+
+        int32_t ddbHour{}, ddbMin{}, ddbSec{}, ddbMicros{};
+        ddb::Time::Convert(ddbTime, ddbHour, ddbMin, ddbSec, ddbMicros);
+
+        chr::seconds secs{ddbHour * 3600 + ddbMin * 60 + ddbSec};
+        chr::microseconds musecs{ddbMicros};
+        musecs += secs;
+
+        return hh_mm_ss{chr::duration_cast<chr::nanoseconds>(musecs)};
     }
 
     template <typename T>

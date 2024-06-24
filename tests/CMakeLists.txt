@@ -5,6 +5,7 @@ add_executable(duckforeach_tests
     main.cpp
     int_types.cpp
     float_types.cpp
+    time_types.cpp
 )
 
 target_link_libraries(duckforeach_tests
