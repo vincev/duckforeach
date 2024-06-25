@@ -8,6 +8,7 @@
 #include <format>
 #include <functional>
 #include <optional>
+#include <ostream>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
@@ -59,11 +60,51 @@ private:
 using year_month_day = std::chrono::year_month_day;
 using hh_mm_ss = std::chrono::hh_mm_ss<std::chrono::nanoseconds>;
 
-struct Timestamp
+// A std::chrono based timestamp.
+class Timestamp
 {
-    year_month_day ymd;
-    hh_mm_ss hms;
+public:
+    using TimeType = std::chrono::sys_time<std::chrono::nanoseconds>;
+
+    Timestamp() = default;
+
+    Timestamp(TimeType time)
+        : mTime{time}
+    {
+    }
+
+    year_month_day ymd() const
+    {
+        return year_month_day{std::chrono::floor<std::chrono::days>(mTime)};
+    }
+
+    hh_mm_ss hms() const
+    {
+        return hh_mm_ss{mTime - std::chrono::floor<std::chrono::days>(mTime)};
+    }
+
+    TimeType time() const
+    {
+        return mTime;
+    }
+
+    auto operator<=>(const Timestamp& rhs) const = default;
+
+    static Timestamp now()
+    {
+        return Timestamp{std::chrono::system_clock::now()};
+    }
+
+private:
+    TimeType mTime;
 };
+
+template <class C, class T>
+std::basic_ostream<C, T>& operator<<(std::basic_ostream<C, T>& os, const Timestamp& ts)
+{
+    os << ts.time();
+    return os;
+}
 
 namespace details {
 
@@ -294,8 +335,9 @@ private:
         ddb::dtime_t ddbTime;
         ddb::Timestamp::Convert(ddbts, ddbDate, ddbTime);
 
-        outVal.ymd = cast(ddbDate);
-        outVal.hms = cast(ddbTime);
+        year_month_day ymd{cast(ddbDate)};
+        hh_mm_ss hms{cast(ddbTime)};
+        outVal = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
     }
 
     void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<Timestamp>& outVal)
@@ -306,11 +348,14 @@ private:
         cast(colNum, "Timestamp", dbVal, ddbts);
         if (ddbts)
         {
-            Timestamp ts;
             ddb::date_t ddbDate;
             ddb::dtime_t ddbTime;
             ddb::Timestamp::Convert(*ddbts, ddbDate, ddbTime);
-            outVal = Timestamp{.ymd = cast(ddbDate), .hms = cast(ddbTime)};
+
+            year_month_day ymd{cast(ddbDate)};
+            hh_mm_ss hms{cast(ddbTime)};
+
+            outVal = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
         }
         else
         {
@@ -443,3 +488,25 @@ template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow)
 } // namespace details
 
 } // namespace duckforeach
+
+namespace std {
+
+// Formatting for Timestamp
+template <> struct formatter<duckforeach::Timestamp> : formatter<duckforeach::Timestamp::TimeType>
+{
+    auto format(const duckforeach::Timestamp& ts, auto& ctx) const
+    {
+        return std::formatter<duckforeach::Timestamp::TimeType>::format(ts.time(), ctx);
+    }
+};
+
+// Hash for timestamp.
+template <> struct hash<duckforeach::Timestamp>
+{
+    std::size_t operator()(const duckforeach::Timestamp& ts) const noexcept
+    {
+        return ts.time().time_since_epoch().count();
+    }
+};
+
+} // namespace std

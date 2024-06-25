@@ -84,10 +84,10 @@ TEST_CASE("Test time types")
             CHECK_EQ(hms.minutes(), chr::minutes{30});
             CHECK_EQ(hms.seconds(), chr::seconds{rowCount});
 
-            CHECK_EQ(ts.ymd, expectedYmd);
-            CHECK_EQ(ts.hms.hours(), chr::hours{11});
-            CHECK_EQ(ts.hms.minutes(), chr::minutes{30});
-            CHECK_EQ(ts.hms.seconds(), chr::seconds{rowCount});
+            CHECK_EQ(ts.ymd(), ymd);
+            CHECK_EQ(ts.hms().hours(), chr::hours{11});
+            CHECK_EQ(ts.hms().minutes(), chr::minutes{30});
+            CHECK_EQ(ts.hms().seconds(), chr::seconds{rowCount});
         }));
     }
 
@@ -297,12 +297,14 @@ TEST_CASE("Test time types")
                 else
                 {
                     ++rowCount;
-                    dfe::year_month_day expectedYmd{chr::year{2024}, chr::month{6},
-                                                    chr::day{rowCount}};
-                    CHECK_EQ(ts->ymd, expectedYmd);
-                    CHECK_EQ(ts->hms.hours(), chr::hours{11});
-                    CHECK_EQ(ts->hms.minutes(), chr::minutes{30});
-                    CHECK_EQ(ts->hms.seconds(), chr::seconds{rowCount});
+                    dfe::year_month_day ymd{chr::year{2024}, chr::month{6}, chr::day{rowCount}};
+                    CHECK_EQ(ts->ymd(), ymd);
+
+                    dfe::hh_mm_ss hms{chr::hours{11} + chr::minutes{30} + chr::seconds{rowCount}};
+                    CHECK_EQ(ts->hms().hours(), hms.hours());
+                    CHECK_EQ(ts->hms().minutes(), hms.minutes());
+                    CHECK_EQ(ts->hms().seconds(), hms.seconds());
+                    CHECK_EQ(ts->hms().subseconds(), hms.subseconds());
                 }
             }));
 
@@ -310,4 +312,41 @@ TEST_CASE("Test time types")
             CHECK_EQ(rowCount, numRows);
         }
     }
+}
+
+TEST_CASE("Test Timestamp comparisons")
+{
+    auto ts1{dfe::Timestamp::now()};
+    auto ts2{dfe::Timestamp(ts1.time() + chr::minutes{1})};
+
+    CHECK_EQ(ts1, ts1);
+    CHECK(ts1 < ts2);
+    CHECK(ts2 > ts1);
+}
+
+TEST_CASE("Test Timestamp hashing")
+{
+    std::unordered_set<dfe::Timestamp> set;
+
+    auto ts1{dfe::Timestamp::now()};
+    set.insert(ts1);
+
+    for (int i{1}; i < 100; ++i)
+        set.insert(dfe::Timestamp(ts1.time() + chr::seconds{i}));
+
+    CHECK_EQ(set.size(), 100);
+
+    for (int i{1}; i < 100; ++i)
+        CHECK(set.contains(dfe::Timestamp(ts1.time() + chr::seconds{i})));
+}
+
+TEST_CASE("Test Timestamp formatting")
+{
+    dfe::year_month_day ymd{chr::year{2024} / 6 / 25};
+    dfe::hh_mm_ss hms{chr::hours{11} + chr::minutes{30} + chr::seconds{25}};
+    dfe::Timestamp ts{std::chrono::sys_days{ymd} + hms.to_duration() + chr::nanoseconds{123456789}};
+
+    CHECK_EQ(std::format("{0:%Y}-{0:%m}-{0:%d}", ts), "2024-06-25");
+    CHECK_EQ(std::format("{0:%H}:{0:%M}:{0:%S}", ts), "11:30:25.123456789");
+    CHECK_EQ(std::format("{:%T}", ts), "11:30:25.123456789");
 }
