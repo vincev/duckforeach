@@ -3,9 +3,10 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR YES)
 # Configure test exectuable.
 add_executable(duckforeach_tests
     main.cpp
-    int_types.cpp
-    float_types.cpp
-    time_types.cpp
+    ints.cpp
+    floats.cpp
+    strings.cpp
+    times.cpp
 )
 
 target_link_libraries(duckforeach_tests
