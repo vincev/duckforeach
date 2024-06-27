@@ -15,48 +15,6 @@
 
 namespace duckforeach {
 
-namespace details {
-template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow);
-}
-
-class DuckForEach
-{
-public:
-    DuckForEach(std::unique_ptr<duckdb::QueryResult> result)
-        : mResult{std::move(result)}
-    {
-        if (!mResult)
-            throw std::invalid_argument{"Invalid query result."};
-
-        if (mResult->HasError())
-            throw std::runtime_error(std::format("Query error {}", mResult->GetError()));
-    }
-
-    template <typename Fn> void operator()(Fn op)
-    {
-        std::function opFn{op};
-        invokeImpl(opFn);
-    }
-
-private:
-    template <typename R, typename... Args> void invokeImpl(std::function<R(Args...)> f)
-    {
-        const uint64_t nCols{mResult->ColumnCount()};
-
-        if (sizeof...(Args) != nCols)
-            throw std::invalid_argument{
-                std::format("Invalid number of arguments, function has {} but query result has {}",
-                            sizeof...(Args), nCols)};
-
-        for (auto rowsIt{mResult->begin()}; rowsIt != mResult->end(); ++rowsIt)
-        {
-            std::apply(f, details::castRow<Args...>(*rowsIt));
-        }
-    }
-
-    std::unique_ptr<duckdb::QueryResult> mResult;
-};
-
 using year_month_day = std::chrono::year_month_day;
 using hh_mm_ss = std::chrono::hh_mm_ss<std::chrono::nanoseconds>;
 
@@ -485,7 +443,88 @@ template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow)
     return outRow;
 }
 
+template <typename T>
+inline constexpr bool IsValidArgumentV =
+    std::is_convertible_v<T, bool> || std::is_convertible_v<T, std::optional<bool>> ||
+    std::is_convertible_v<T, char> || std::is_convertible_v<T, std::optional<char>> ||
+    std::is_convertible_v<T, int8_t> || std::is_convertible_v<T, std::optional<int8_t>> ||
+    std::is_convertible_v<T, int16_t> || std::is_convertible_v<T, std::optional<int16_t>> ||
+    std::is_convertible_v<T, int32_t> || std::is_convertible_v<T, std::optional<int32_t>> ||
+    std::is_convertible_v<T, int64_t> || std::is_convertible_v<T, std::optional<int64_t>> ||
+    std::is_convertible_v<T, uint8_t> || std::is_convertible_v<T, std::optional<uint8_t>> ||
+    std::is_convertible_v<T, uint16_t> || std::is_convertible_v<T, std::optional<uint16_t>> ||
+    std::is_convertible_v<T, uint32_t> || std::is_convertible_v<T, std::optional<uint32_t>> ||
+    std::is_convertible_v<T, uint64_t> || std::is_convertible_v<T, std::optional<uint64_t>> ||
+    std::is_convertible_v<T, double> || std::is_convertible_v<T, std::optional<double>> ||
+    std::is_convertible_v<T, float> || std::is_convertible_v<T, std::optional<float>> ||
+    std::is_convertible_v<T, std::string> || std::is_convertible_v<T, std::optional<std::string>> ||
+    std::is_convertible_v<T, duckdb::date_t> ||
+    std::is_convertible_v<T, std::optional<duckdb::date_t>> ||
+    std::is_convertible_v<T, duckdb::dtime_t> ||
+    std::is_convertible_v<T, std::optional<duckdb::dtime_t>> ||
+    std::is_convertible_v<T, duckdb::timestamp_t> ||
+    std::is_convertible_v<T, std::optional<duckdb::timestamp_t>> ||
+    std::is_convertible_v<T, duckdb::interval_t> ||
+    std::is_convertible_v<T, std::optional<duckdb::interval_t>> ||
+    std::is_convertible_v<T, Timestamp> || std::is_convertible_v<T, std::optional<Timestamp>> ||
+    std::is_convertible_v<T, year_month_day> ||
+    std::is_convertible_v<T, std::optional<year_month_day>> || std::is_convertible_v<T, hh_mm_ss> ||
+    std::is_convertible_v<T, std::optional<hh_mm_ss>>;
+
+template <typename T, typename... Args> constexpr bool IsValidSignature()
+{
+    constexpr bool isValidArgument = IsValidArgumentV<T>;
+
+    static_assert(isValidArgument, "Invalid argument type T");
+
+    if constexpr (isValidArgument && sizeof...(Args) > 0)
+        return IsValidSignature<Args...>();
+    else
+        return isValidArgument;
+}
+
 } // namespace details
+
+class DuckForEach
+{
+public:
+    DuckForEach(std::unique_ptr<duckdb::QueryResult> result)
+        : mResult{std::move(result)}
+    {
+        if (!mResult)
+            throw std::invalid_argument{"Invalid query result."};
+
+        if (mResult->HasError())
+            throw std::runtime_error(std::format("Query error {}", mResult->GetError()));
+    }
+
+    template <typename Fn> void operator()(Fn op)
+    {
+        std::function opFn{op};
+        invokeImpl(opFn);
+    }
+
+private:
+    template <typename R, typename... Args> void invokeImpl(std::function<R(Args...)> f)
+    {
+        if constexpr (details::IsValidSignature<Args...>())
+        {
+            const uint64_t nCols{mResult->ColumnCount()};
+
+            if (sizeof...(Args) != nCols)
+                throw std::invalid_argument{std::format(
+                    "Invalid number of arguments, function has {} but query result has {}",
+                    sizeof...(Args), nCols)};
+
+            for (auto rowsIt{mResult->begin()}; rowsIt != mResult->end(); ++rowsIt)
+            {
+                std::apply(f, details::castRow<Args...>(*rowsIt));
+            }
+        }
+    }
+
+    std::unique_ptr<duckdb::QueryResult> mResult;
+};
 
 } // namespace duckforeach
 
