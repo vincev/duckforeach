@@ -5,6 +5,7 @@ add_executable(duckforeach_tests
     main.cpp
     ints.cpp
     floats.cpp
+    functions.cpp
     strings.cpp
     times.cpp
 )

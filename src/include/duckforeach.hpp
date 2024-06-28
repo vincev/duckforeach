@@ -498,14 +498,14 @@ public:
             throw std::runtime_error(std::format("Query error {}", mResult->GetError()));
     }
 
-    template <typename Fn> void operator()(Fn op)
+    template <typename F> auto operator()(F f)
     {
-        std::function opFn{op};
-        invokeImpl(opFn);
+        return invokeImpl<F>(std::function{f});
     }
 
 private:
-    template <typename R, typename... Args> void invokeImpl(std::function<R(Args...)> f)
+    template <typename F, typename R, typename... Args>
+    auto invokeImpl(std::function<R(Args...)>&& f)
     {
         if constexpr (details::IsValidSignature<Args...>())
         {
@@ -521,6 +521,8 @@ private:
                 std::apply(f, details::castRow<Args...>(*rowsIt));
             }
         }
+
+        return *f.template target<F>();
     }
 
     std::unique_ptr<duckdb::QueryResult> mResult;
