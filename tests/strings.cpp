@@ -25,8 +25,7 @@ TEST_CASE("Test strings")
                        "  intval INTERVAL)")};
     REQUIRE_FALSE(res->HasError());
 
-    const size_t numRows{10};
-    for (size_t i{0}; i < numRows; ++i)
+    for (size_t i{0}; i < 10; ++i)
     {
         auto stm{std::format("INSERT INTO t VALUES ("
                              "'label{0}', "
@@ -42,100 +41,101 @@ TEST_CASE("Test strings")
 
     SUBCASE("string by value")
     {
-        dfe::DuckForEach dfe{con.Query("select strval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("label{}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select strval from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("label{}", num_rows));
+                                    }));
     }
 
     SUBCASE("string by rvalue reference")
     {
-        dfe::DuckForEach dfe{con.Query("select strval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string&& s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("label{}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select strval from t"),
+                                    [&](std::string&& s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("label{}", num_rows));
+                                    }));
     }
 
     SUBCASE("string by const reference")
     {
-        dfe::DuckForEach dfe{con.Query("select strval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](const std::string& s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("label{}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select strval from t"),
+                                    [&](const std::string& s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("label{}", num_rows));
+                                    }));
     }
 
     SUBCASE("integer to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select ival from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("{}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select ival from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("{}", num_rows));
+                                    }));
     }
 
     SUBCASE("float to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select rval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("{}.0", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select rval from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("{}.0", num_rows));
+                                    }));
     }
 
     SUBCASE("date to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select dtval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("2024-06-{:02}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select dtval from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("2024-06-{:02}", num_rows));
+                                    }));
     }
 
     SUBCASE("time to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select tmval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("11:30:{:02}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select tmval from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("11:30:{:02}", num_rows));
+                                    }));
     }
 
     SUBCASE("timestamp to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select tsval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("2024-06-{0:02} 11:30:{0:02}", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(
+            dfe::for_each(con.Query("select tsval from t"),
+                          [&](std::string s)
+                          {
+                              ++num_rows;
+                              CHECK_EQ(s, std::format("2024-06-{0:02} 11:30:{0:02}", num_rows));
+                          }));
     }
 
     SUBCASE("interval to string conversion")
     {
-        dfe::DuckForEach dfe{con.Query("select intval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string s) {
-            ++rowCount;
-            CHECK_EQ(s, std::format("{0:02}:00:00", rowCount));
-        }));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select intval from t"),
+                                    [&](std::string s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(s, std::format("{0:02}:00:00", num_rows));
+                                    }));
     }
 }

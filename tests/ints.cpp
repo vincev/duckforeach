@@ -14,7 +14,7 @@ TEST_CASE("Test int8, uint8, char")
 {
     using SInt = int8_t;
     using UInt = uint8_t;
-    constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
+    constexpr UInt MAX_UVAL = std::numeric_limits<UInt>::max();
 
     ddb::DuckDB db;
     ddb::Connection con{db};
@@ -26,7 +26,7 @@ TEST_CASE("Test int8, uint8, char")
     std::unordered_set<UInt> uints;
 
     ddb::Appender appender{con, "t"};
-    for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
+    for (UInt i{MAX_UVAL - 100}; i < MAX_UVAL; ++i)
     {
         auto sval{static_cast<SInt>(i)};
         sints.insert(sval);
@@ -40,65 +40,65 @@ TEST_CASE("Test int8, uint8, char")
 
     SUBCASE("signed and unsigned TINYINT")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](UInt uval, SInt sval)
+                                    {
+                                        CHECK(uints.contains(uval));
+                                        CHECK(sints.contains(sval));
+                                        ++num_rows;
+                                    }));
 
-        size_t foundRows{0};
-        CHECK_NOTHROW(dfe([&](UInt uval, SInt sval) {
-            CHECK(uints.contains(uval));
-            CHECK(sints.contains(sval));
-            ++foundRows;
-        }));
-
-        CHECK_EQ(foundRows, sints.size());
+        CHECK_EQ(num_rows, sints.size());
     }
 
     SUBCASE("conversion to char")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](char uval, char sval)
+                                    {
+                                        CHECK(uints.contains(static_cast<UInt>(uval)));
+                                        ++num_rows;
+                                    }));
 
-        size_t foundRows{0};
-        CHECK_NOTHROW(dfe([&](char uval, char sval) {
-            CHECK(uints.contains(static_cast<UInt>(uval)));
-            ++foundRows;
-        }));
-
-        CHECK_EQ(foundRows, sints.size());
+        CHECK_EQ(num_rows, sints.size());
     }
 
     SUBCASE("conversion to bigger integers")
     {
-        dfe::DuckForEach dfe16{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe16([&](uint16_t uval, int16_t sval) {
-            CHECK(uints.contains(static_cast<UInt>(uval)));
-            CHECK(sints.contains(static_cast<SInt>(sval)));
-        }));
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](uint16_t uval, int16_t sval)
+                                    {
+                                        CHECK(uints.contains(static_cast<UInt>(uval)));
+                                        CHECK(sints.contains(static_cast<SInt>(sval)));
+                                    }));
 
-        dfe::DuckForEach dfe32{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe32([&](uint32_t uval, int32_t sval) {
-            CHECK(uints.contains(static_cast<UInt>(uval)));
-            CHECK(sints.contains(static_cast<SInt>(sval)));
-        }));
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](uint32_t uval, int32_t sval)
+                                    {
+                                        CHECK(uints.contains(static_cast<UInt>(uval)));
+                                        CHECK(sints.contains(static_cast<SInt>(sval)));
+                                    }));
     }
 
     SUBCASE("throw if invalid signed conversion")
     {
         // This should throw as uval column is unsigned.
-        dfe::DuckForEach dfe1{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe1([&](SInt uval, SInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](SInt uval, SInt sval) {}));
 
         // This should throw as sval column is signed.
-        dfe::DuckForEach dfe2{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe2([&](UInt uval, UInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, UInt sval) {}));
     }
 
     SUBCASE("throw if number of columns different than number of arguments")
     {
         // These should throw as the query has two columns
-        dfe::DuckForEach dfe1{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe1([&](UInt sval) {}));
-
-        dfe::DuckForEach dfe2{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe2([&](UInt uval, SInt sval, SInt aval) {}));
+        CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"), [&](UInt sval) {}));
+        CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"),
+                                   [&](UInt uval, SInt sval, SInt aval) {}));
     }
 
     SUBCASE("handle nulls using optional parameters")
@@ -106,26 +106,25 @@ TEST_CASE("Test int8, uint8, char")
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
         // This should throw as plain types cannot handle nulls.
-        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, SInt sval) {}));
 
-        size_t numNulls{0};
-        size_t numRows{0};
+        size_t num_nulls{0}, num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](std::optional<UInt> uval, std::optional<SInt> sval)
+                                    {
+                                        if (!uval.has_value() || !sval.has_value())
+                                            ++num_nulls;
+                                        else
+                                        {
+                                            CHECK(uints.contains(static_cast<UInt>(*uval)));
+                                            CHECK(sints.contains(static_cast<SInt>(*sval)));
+                                            ++num_rows;
+                                        }
+                                    }));
 
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe([&](std::optional<UInt> uval, std::optional<SInt> sval) {
-            if (!uval.has_value() || !sval.has_value())
-                ++numNulls;
-            else
-            {
-                CHECK(uints.contains(static_cast<UInt>(*uval)));
-                CHECK(sints.contains(static_cast<SInt>(*sval)));
-                ++numRows;
-            }
-        }));
-
-        CHECK_EQ(numNulls, 2);
-        CHECK_EQ(numRows, sints.size());
+        CHECK_EQ(num_nulls, 2);
+        CHECK_EQ(num_rows, sints.size());
     }
 }
 
@@ -133,7 +132,7 @@ TEST_CASE("Test int16, uint16")
 {
     using SInt = int16_t;
     using UInt = uint16_t;
-    constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
+    constexpr UInt MAX_UVAL = std::numeric_limits<UInt>::max();
 
     ddb::DuckDB db;
     ddb::Connection con{db};
@@ -145,7 +144,7 @@ TEST_CASE("Test int16, uint16")
     std::unordered_set<UInt> uints;
 
     ddb::Appender appender{con, "t"};
-    for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
+    for (UInt i{MAX_UVAL - 100}; i < MAX_UVAL; ++i)
     {
         auto sval{static_cast<SInt>(i)};
         sints.insert(sval);
@@ -159,35 +158,35 @@ TEST_CASE("Test int16, uint16")
 
     SUBCASE("signed and unsigned SMALLINT")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](UInt uval, SInt sval)
+                                    {
+                                        CHECK(uints.contains(uval));
+                                        CHECK(sints.contains(sval));
+                                        ++num_rows;
+                                    }));
 
-        size_t foundRows{0};
-        CHECK_NOTHROW(dfe([&](UInt uval, SInt sval) {
-            CHECK(uints.contains(uval));
-            CHECK(sints.contains(sval));
-            ++foundRows;
-        }));
-
-        CHECK_EQ(foundRows, sints.size());
+        CHECK_EQ(num_rows, sints.size());
     }
 
     SUBCASE("throw if invalid signed conversion")
     {
         // This should throw as sval column is signed.
-        dfe::DuckForEach dfe2{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe2([&](UInt uval, UInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, UInt sval) {}));
     }
 
     SUBCASE("throw on conversion to smaller int overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](uint8_t uval, int8_t sval) {}));
+        CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"),
+                                   [&](uint8_t uval, int8_t sval) {}));
     }
 
     SUBCASE("throw on conversion to char overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](char uval, char sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
     }
 
     SUBCASE("handle nulls using optional parameters")
@@ -195,26 +194,25 @@ TEST_CASE("Test int16, uint16")
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
         // This should throw as plain types cannot handle nulls.
-        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, SInt sval) {}));
 
-        size_t numNulls{0};
-        size_t numRows{0};
+        size_t num_nulls{0}, num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](std::optional<UInt> uval, std::optional<SInt> sval)
+                                    {
+                                        if (!uval.has_value() || !sval.has_value())
+                                            ++num_nulls;
+                                        else
+                                        {
+                                            CHECK(uints.contains(static_cast<UInt>(*uval)));
+                                            CHECK(sints.contains(static_cast<SInt>(*sval)));
+                                            ++num_rows;
+                                        }
+                                    }));
 
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe([&](std::optional<UInt> uval, std::optional<SInt> sval) {
-            if (!uval.has_value() || !sval.has_value())
-                ++numNulls;
-            else
-            {
-                CHECK(uints.contains(static_cast<UInt>(*uval)));
-                CHECK(sints.contains(static_cast<SInt>(*sval)));
-                ++numRows;
-            }
-        }));
-
-        CHECK_EQ(numNulls, 2);
-        CHECK_EQ(numRows, sints.size());
+        CHECK_EQ(num_nulls, 2);
+        CHECK_EQ(num_rows, sints.size());
     }
 }
 
@@ -222,7 +220,7 @@ TEST_CASE("Test int32, uint32")
 {
     using SInt = int32_t;
     using UInt = uint32_t;
-    constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
+    constexpr UInt MAX_UVAL = std::numeric_limits<UInt>::max();
 
     ddb::DuckDB db;
     ddb::Connection con{db};
@@ -234,7 +232,7 @@ TEST_CASE("Test int32, uint32")
     std::unordered_set<UInt> uints;
 
     ddb::Appender appender{con, "t"};
-    for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
+    for (UInt i{MAX_UVAL - 100}; i < MAX_UVAL; ++i)
     {
         auto sval{static_cast<SInt>(i)};
         sints.insert(sval);
@@ -248,35 +246,35 @@ TEST_CASE("Test int32, uint32")
 
     SUBCASE("signed and unsigned INTEGER")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](UInt uval, SInt sval)
+                                    {
+                                        CHECK(uints.contains(uval));
+                                        CHECK(sints.contains(sval));
+                                        ++num_rows;
+                                    }));
 
-        size_t foundRows{0};
-        CHECK_NOTHROW(dfe([&](UInt uval, SInt sval) {
-            CHECK(uints.contains(uval));
-            CHECK(sints.contains(sval));
-            ++foundRows;
-        }));
-
-        CHECK_EQ(foundRows, sints.size());
+        CHECK_EQ(num_rows, sints.size());
     }
 
     SUBCASE("throw if invalid signed conversion")
     {
         // This should throw as sval column is signed.
-        dfe::DuckForEach dfe2{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe2([&](UInt uval, UInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, UInt sval) {}));
     }
 
     SUBCASE("throw on conversion to smaller int overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](uint16_t uval, int16_t sval) {}));
+        CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"),
+                                   [&](uint16_t uval, int16_t sval) {}));
     }
 
     SUBCASE("throw on conversion to char overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](char uval, char sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
     }
 
     SUBCASE("handle nulls using optional parameters")
@@ -284,26 +282,25 @@ TEST_CASE("Test int32, uint32")
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
         // This should throw as plain types cannot handle nulls.
-        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, SInt sval) {}));
 
-        size_t numNulls{0};
-        size_t numRows{0};
+        size_t num_nulls{0}, num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](std::optional<UInt> uval, std::optional<SInt> sval)
+                                    {
+                                        if (!uval.has_value() || !sval.has_value())
+                                            ++num_nulls;
+                                        else
+                                        {
+                                            CHECK(uints.contains(static_cast<UInt>(*uval)));
+                                            CHECK(sints.contains(static_cast<SInt>(*sval)));
+                                            ++num_rows;
+                                        }
+                                    }));
 
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe([&](std::optional<UInt> uval, std::optional<SInt> sval) {
-            if (!uval.has_value() || !sval.has_value())
-                ++numNulls;
-            else
-            {
-                CHECK(uints.contains(static_cast<UInt>(*uval)));
-                CHECK(sints.contains(static_cast<SInt>(*sval)));
-                ++numRows;
-            }
-        }));
-
-        CHECK_EQ(numNulls, 2);
-        CHECK_EQ(numRows, sints.size());
+        CHECK_EQ(num_nulls, 2);
+        CHECK_EQ(num_rows, sints.size());
     }
 }
 
@@ -311,7 +308,7 @@ TEST_CASE("Test int64, uint64")
 {
     using SInt = int64_t;
     using UInt = uint64_t;
-    constexpr UInt MaxUVal = std::numeric_limits<UInt>::max();
+    constexpr UInt MAX_UVAL = std::numeric_limits<UInt>::max();
 
     ddb::DuckDB db;
     ddb::Connection con{db};
@@ -323,7 +320,7 @@ TEST_CASE("Test int64, uint64")
     std::unordered_set<UInt> uints;
 
     ddb::Appender appender{con, "t"};
-    for (UInt i{MaxUVal - 100}; i < MaxUVal; ++i)
+    for (UInt i{MAX_UVAL - 100}; i < MAX_UVAL; ++i)
     {
         auto sval{static_cast<SInt>(i)};
         sints.insert(sval);
@@ -337,35 +334,35 @@ TEST_CASE("Test int64, uint64")
 
     SUBCASE("signed and unsigned BIGINT")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](UInt uval, SInt sval)
+                                    {
+                                        CHECK(uints.contains(uval));
+                                        CHECK(sints.contains(sval));
+                                        ++num_rows;
+                                    }));
 
-        size_t foundRows{0};
-        CHECK_NOTHROW(dfe([&](UInt uval, SInt sval) {
-            CHECK(uints.contains(uval));
-            CHECK(sints.contains(sval));
-            ++foundRows;
-        }));
-
-        CHECK_EQ(foundRows, sints.size());
+        CHECK_EQ(num_rows, sints.size());
     }
 
     SUBCASE("throw if invalid signed conversion")
     {
         // This should throw as sval column is signed.
-        dfe::DuckForEach dfe2{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe2([&](UInt uval, UInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, UInt sval) {}));
     }
 
     SUBCASE("throw on conversion to smaller int overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](uint32_t uval, int32_t sval) {}));
+        CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"),
+                                   [&](uint32_t uval, int32_t sval) {}));
     }
 
     SUBCASE("throw on conversion to char overflow")
     {
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfe([&](char uval, char sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
     }
 
     SUBCASE("handle nulls using optional parameters")
@@ -373,25 +370,24 @@ TEST_CASE("Test int64, uint64")
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
 
         // This should throw as plain types cannot handle nulls.
-        dfe::DuckForEach dfNoOpt{con.Query("select uval, sval from t")};
-        CHECK_THROWS(dfNoOpt([&](UInt uval, SInt sval) {}));
+        CHECK_THROWS(
+            dfe::for_each(con.Query("select uval, sval from t"), [&](UInt uval, SInt sval) {}));
 
-        size_t numNulls{0};
-        size_t numRows{0};
+        size_t num_nulls{0}, num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
+                                    [&](std::optional<UInt> uval, std::optional<SInt> sval)
+                                    {
+                                        if (!uval.has_value() || !sval.has_value())
+                                            ++num_nulls;
+                                        else
+                                        {
+                                            CHECK(uints.contains(static_cast<UInt>(*uval)));
+                                            CHECK(sints.contains(static_cast<SInt>(*sval)));
+                                            ++num_rows;
+                                        }
+                                    }));
 
-        dfe::DuckForEach dfe{con.Query("select uval, sval from t")};
-        CHECK_NOTHROW(dfe([&](std::optional<UInt> uval, std::optional<SInt> sval) {
-            if (!uval.has_value() || !sval.has_value())
-                ++numNulls;
-            else
-            {
-                CHECK(uints.contains(static_cast<UInt>(*uval)));
-                CHECK(sints.contains(static_cast<SInt>(*sval)));
-                ++numRows;
-            }
-        }));
-
-        CHECK_EQ(numNulls, 2);
-        CHECK_EQ(numRows, sints.size());
+        CHECK_EQ(num_nulls, 2);
+        CHECK_EQ(num_rows, sints.size());
     }
 }

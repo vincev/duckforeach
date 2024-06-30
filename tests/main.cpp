@@ -10,12 +10,10 @@ namespace dfe = duckforeach;
 
 TEST_CASE("Check constructors")
 {
-    CHECK_THROWS(dfe::DuckForEach{nullptr});
+    CHECK_THROWS(dfe::for_each(nullptr, [](int16_t) {}));
 
     ddb::DuckDB db;
     ddb::Connection con{db};
-
     // Should throw if Query returns a result with an error.
-    auto res{con.Query("select * from notable")};
-    CHECK_THROWS(dfe::DuckForEach{std::move(res)});
+    CHECK_THROWS(dfe::for_each(con.Query("select * from notable"), [](bool b) {}));
 }

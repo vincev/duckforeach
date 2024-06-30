@@ -18,6 +18,7 @@ BraceWrapping:
   AfterStruct: true
   BeforeCatch: true
   BeforeElse: true
+  BeforeLambdaBody: true
 IndentAccessModifiers: false
 PackConstructorInitializers: Never
 PointerAlignment: Left

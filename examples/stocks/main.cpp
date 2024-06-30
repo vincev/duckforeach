@@ -23,12 +23,22 @@ int main(int argc, char* argv[])
                   "INSERT INTO prices VALUES('TSLA','2024-06-20',181.56,41533612);"
                   "INSERT INTO prices VALUES('TSLA','2024-06-21',183.00,39706710);");
 
-        dfe::DuckForEach f{con.Query("select date, symbol, close, volume "
-                                     "from prices "
-                                     "order by date")};
-        f([&](dfe::Timestamp ts, std::string sym, double close, int64_t volume) {
-            std::cout << std::format("{:%F} {} {:.2f} {:9}", ts, sym, close, volume) << std::endl;
-        });
+        dfe::for_each(con.Query("select date, symbol, close, volume from prices order by date"),
+                      [](dfe::Timestamp date, std::string sym, double close, int64_t vol) {
+                          std::cout << std::format("{:%F} {} {:.2f} {:9}\n", date, sym, close, vol);
+                      });
+
+        std::cout << "\n";
+
+        // For more complex queries we can move the query result into for_each
+        auto result{con.Query("select date, symbol, close, volume "
+                              "from prices "
+                              "where symbol similar to '.*A$' "
+                              "order by date")};
+        dfe::for_each(std::move(result),
+                      [](dfe::Timestamp date, std::string sym, double close, int64_t vol) {
+                          std::cout << std::format("{:%F} {} {:.2f} {:9}\n", date, sym, close, vol);
+                      });
     }
     catch (const std::exception& ex)
     {

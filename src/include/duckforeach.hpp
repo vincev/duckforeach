@@ -66,385 +66,378 @@ std::basic_ostream<C, T>& operator<<(std::basic_ostream<C, T>& os, const Timesta
 
 namespace details {
 
-template <typename V> class ValueCast
+template <typename T>
+inline void cast_value(std::size_t column, const char* typestr, duckdb::Value& dbval, T& outval)
 {
-public:
-    ValueCast(std::size_t colNum, duckdb::Value& dbVal, V& v)
+    if (dbval.IsNull())
+        throw std::invalid_argument{std::format("Cannot convert null value at column {} to "
+                                                "{} use std::optional for this column",
+                                                column, typestr)};
+    try
     {
-        cast(colNum, dbVal, v);
+        outval = dbval.GetValue<T>();
     }
-
-private:
-    void cast(std::size_t colNum, duckdb::Value& dbVal, bool& outVal)
+    catch (const std::exception& e)
     {
-        cast(colNum, "bool", dbVal, outVal);
+        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                " to {}",
+                                                column, dbval.type().ToString(), typestr)};
     }
+}
 
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<bool>& outVal)
+template <typename T>
+inline void
+cast_value(std::size_t column, const char* typestr, duckdb::Value& dbval, std::optional<T>& outval)
+{
+    if (dbval.IsNull())
+        outval = std::nullopt;
+    else
     {
-        cast(colNum, "bool", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, char& outVal)
-    {
-        if (dbVal.type().id() == duckdb::LogicalTypeId::TINYINT)
-        {
-            int8_t v;
-            cast(colNum, "char", dbVal, v);
-            outVal = static_cast<char>(v);
-        }
-        else if (dbVal.type().id() == duckdb::LogicalTypeId::UTINYINT)
-        {
-            uint8_t v;
-            cast(colNum, "char", dbVal, v);
-            outVal = static_cast<char>(v);
-        }
-        else
-        {
-            throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                    " to char",
-                                                    colNum, dbVal.type().ToString())};
-        }
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<char>& outVal)
-    {
-        outVal.reset();
-        if (dbVal.type().id() == duckdb::LogicalTypeId::TINYINT)
-        {
-            std::optional<int8_t> v;
-            cast(colNum, "char", dbVal, v);
-            if (v)
-                outVal = static_cast<char>(*v);
-        }
-        else if (dbVal.type().id() == duckdb::LogicalTypeId::UTINYINT)
-        {
-            std::optional<uint8_t> v;
-            cast(colNum, "char", dbVal, v);
-            if (v)
-                outVal = static_cast<char>(*v);
-        }
-        else
-        {
-            throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                    " to char",
-                                                    colNum, dbVal.type().ToString())};
-        }
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, int8_t& outVal)
-    {
-        cast(colNum, "int8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int8_t>& outVal)
-    {
-        cast(colNum, "int8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, int16_t& outVal)
-    {
-        cast(colNum, "int16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int16_t>& outVal)
-    {
-        cast(colNum, "int16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, int32_t& outVal)
-    {
-        cast(colNum, "int32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int32_t>& outVal)
-    {
-        cast(colNum, "int32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, int64_t& outVal)
-    {
-        cast(colNum, "int64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<int64_t>& outVal)
-    {
-        cast(colNum, "int64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, uint8_t& outVal)
-    {
-        cast(colNum, "uint8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint8_t>& outVal)
-    {
-        cast(colNum, "uint8", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, uint16_t& outVal)
-    {
-        cast(colNum, "uint16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint16_t>& outVal)
-    {
-        cast(colNum, "uint16", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, uint32_t& outVal)
-    {
-        cast(colNum, "uint32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint32_t>& outVal)
-    {
-        cast(colNum, "uint32", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, uint64_t& outVal)
-    {
-        cast(colNum, "uint64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<uint64_t>& outVal)
-    {
-        cast(colNum, "uint64", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, double& outVal)
-    {
-        cast(colNum, "double", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<double>& outVal)
-    {
-        cast(colNum, "double", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, float& outVal)
-    {
-        cast(colNum, "float", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<float>& outVal)
-    {
-        cast(colNum, "float", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::string& outVal)
-    {
-        cast(colNum, "string", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<std::string>& outVal)
-    {
-        cast(colNum, "string", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::date_t& outVal)
-    {
-        cast(colNum, "date", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::date_t>& outVal)
-    {
-        cast(colNum, "date", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::dtime_t& outVal)
-    {
-        cast(colNum, "time", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::dtime_t>& outVal)
-    {
-        cast(colNum, "time", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::timestamp_t& outVal)
-    {
-        cast(colNum, "timestamp", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::timestamp_t>& outVal)
-    {
-        cast(colNum, "timestamp", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, duckdb::interval_t& outVal)
-    {
-        cast(colNum, "interval", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<duckdb::interval_t>& outVal)
-    {
-        cast(colNum, "interval", dbVal, outVal);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, Timestamp& outVal)
-    {
-        namespace ddb = duckdb;
-
-        ddb::timestamp_t ddbts;
-        cast(colNum, "Timestamp", dbVal, ddbts);
-
-        ddb::date_t ddbDate;
-        ddb::dtime_t ddbTime;
-        ddb::Timestamp::Convert(ddbts, ddbDate, ddbTime);
-
-        year_month_day ymd{cast(ddbDate)};
-        hh_mm_ss hms{cast(ddbTime)};
-        outVal = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<Timestamp>& outVal)
-    {
-        namespace ddb = duckdb;
-
-        std::optional<ddb::timestamp_t> ddbts;
-        cast(colNum, "Timestamp", dbVal, ddbts);
-        if (ddbts)
-        {
-            ddb::date_t ddbDate;
-            ddb::dtime_t ddbTime;
-            ddb::Timestamp::Convert(*ddbts, ddbDate, ddbTime);
-
-            year_month_day ymd{cast(ddbDate)};
-            hh_mm_ss hms{cast(ddbTime)};
-
-            outVal = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
-        }
-        else
-        {
-            outVal = std::nullopt;
-        }
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, year_month_day& outVal)
-    {
-        duckdb::date_t ddbDate;
-        cast(colNum, "year_month_day", dbVal, ddbDate);
-        outVal = cast(ddbDate);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<year_month_day>& outVal)
-    {
-        std::optional<duckdb::date_t> ddbDate;
-        cast(colNum, "year_month_day", dbVal, ddbDate);
-        if (ddbDate)
-            outVal = cast(*ddbDate);
-        else
-            outVal = std::nullopt;
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, hh_mm_ss& outVal)
-    {
-        duckdb::dtime_t ddbTime;
-        cast(colNum, "hh_mm_ss", dbVal, ddbTime);
-        outVal = cast(ddbTime);
-    }
-
-    void cast(std::size_t colNum, duckdb::Value& dbVal, std::optional<hh_mm_ss>& outVal)
-    {
-        std::optional<duckdb::dtime_t> ddbTime;
-        cast(colNum, "hh_mm_ss", dbVal, ddbTime);
-        if (ddbTime)
-            outVal = cast(*ddbTime);
-        else
-            outVal = std::nullopt;
-    }
-
-    year_month_day cast(duckdb::date_t ddbDate)
-    {
-        namespace chr = std::chrono;
-        namespace ddb = duckdb;
-
-        return chr::year_month_day{
-            chr::year(ddb::Date::ExtractYear(ddbDate)),
-            chr::month(ddb::Date::ExtractMonth(ddbDate)),
-            chr::day(ddb::Date::ExtractDay(ddbDate)),
-        };
-    }
-
-    hh_mm_ss cast(duckdb::dtime_t ddbTime)
-    {
-        namespace chr = std::chrono;
-        namespace ddb = duckdb;
-
-        int32_t ddbHour{}, ddbMin{}, ddbSec{}, ddbMicros{};
-        ddb::Time::Convert(ddbTime, ddbHour, ddbMin, ddbSec, ddbMicros);
-
-        chr::seconds secs{ddbHour * 3600 + ddbMin * 60 + ddbSec};
-        chr::microseconds musecs{ddbMicros};
-        musecs += secs;
-
-        return hh_mm_ss{chr::duration_cast<chr::nanoseconds>(musecs)};
-    }
-
-    template <typename T>
-    void cast(std::size_t colNum, const char* typeName, duckdb::Value& dbVal, T& outVal)
-    {
-        if (dbVal.IsNull())
-            throw std::invalid_argument{std::format("Cannot convert null value at column {} to "
-                                                    "{} use std::optional for this column",
-                                                    colNum, typeName)};
         try
         {
-            outVal = dbVal.GetValue<T>();
+            outval = dbval.GetValue<T>();
         }
         catch (const std::exception& e)
         {
             throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
                                                     " to {}",
-                                                    colNum, dbVal.type().ToString(), typeName)};
+                                                    column, dbval.type().ToString(), typestr)};
         }
     }
-
-    template <typename T>
-    void
-    cast(std::size_t colNum, const char* typeName, duckdb::Value& dbVal, std::optional<T>& outVal)
-    {
-        if (dbVal.IsNull())
-            outVal = std::nullopt;
-        else
-        {
-            try
-            {
-                outVal = dbVal.GetValue<T>();
-            }
-            catch (const std::exception& e)
-            {
-                throw std::invalid_argument{
-                    std::format("Cannot convert value at column {} of type {}"
-                                " to {}",
-                                colNum, dbVal.type().ToString(), typeName)};
-            }
-        }
-    }
-};
-
-template <std::size_t ColIdx, typename DbRow, typename... Cols>
-void castValue(const DbRow& dbRow, std::tuple<Cols...>& outRow)
-{
-    auto dbVal{dbRow.iterator.chunk->GetValue(ColIdx, dbRow.row)};
-    auto& outVal{std::get<ColIdx>(outRow)};
-
-    ValueCast{ColIdx + 1, dbVal, outVal};
-
-    if constexpr (ColIdx + 1 < sizeof...(Cols))
-        castValue<ColIdx + 1>(dbRow, outRow);
 }
 
-template <typename... Cols, typename DbRow> auto castRow(const DbRow& dbRow)
+inline void cast_value(std::size_t column, duckdb::Value& dbval, bool& outval)
+{
+    cast_value(column, "bool", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<bool>& outval)
+{
+    cast_value(column, "bool", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, char& outval)
+{
+    if (dbval.type().id() == duckdb::LogicalTypeId::TINYINT)
+    {
+        int8_t v;
+        cast_value(column, "char", dbval, v);
+        outval = static_cast<char>(v);
+    }
+    else if (dbval.type().id() == duckdb::LogicalTypeId::UTINYINT)
+    {
+        uint8_t v;
+        cast_value(column, "char", dbval, v);
+        outval = static_cast<char>(v);
+    }
+    else
+    {
+        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                " to char",
+                                                column, dbval.type().ToString())};
+    }
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<char>& outval)
+{
+    outval.reset();
+    if (dbval.type().id() == duckdb::LogicalTypeId::TINYINT)
+    {
+        std::optional<int8_t> v;
+        cast_value(column, "char", dbval, v);
+        if (v)
+            outval = static_cast<char>(*v);
+    }
+    else if (dbval.type().id() == duckdb::LogicalTypeId::UTINYINT)
+    {
+        std::optional<uint8_t> v;
+        cast_value(column, "char", dbval, v);
+        if (v)
+            outval = static_cast<char>(*v);
+    }
+    else
+    {
+        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
+                                                " to char",
+                                                column, dbval.type().ToString())};
+    }
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, int8_t& outval)
+{
+    cast_value(column, "int8", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<int8_t>& outval)
+{
+    cast_value(column, "int8", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, int16_t& outval)
+{
+    cast_value(column, "int16", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<int16_t>& outval)
+{
+    cast_value(column, "int16", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, int32_t& outval)
+{
+    cast_value(column, "int32", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<int32_t>& outval)
+{
+    cast_value(column, "int32", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, int64_t& outval)
+{
+    cast_value(column, "int64", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<int64_t>& outval)
+{
+    cast_value(column, "int64", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, uint8_t& outval)
+{
+    cast_value(column, "uint8", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<uint8_t>& outval)
+{
+    cast_value(column, "uint8", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, uint16_t& outval)
+{
+    cast_value(column, "uint16", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<uint16_t>& outval)
+{
+    cast_value(column, "uint16", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, uint32_t& outval)
+{
+    cast_value(column, "uint32", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<uint32_t>& outval)
+{
+    cast_value(column, "uint32", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, uint64_t& outval)
+{
+    cast_value(column, "uint64", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<uint64_t>& outval)
+{
+    cast_value(column, "uint64", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, double& outval)
+{
+    cast_value(column, "double", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<double>& outval)
+{
+    cast_value(column, "double", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, float& outval)
+{
+    cast_value(column, "float", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<float>& outval)
+{
+    cast_value(column, "float", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::string& outval)
+{
+    cast_value(column, "string", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<std::string>& outval)
+{
+    cast_value(column, "string", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, duckdb::date_t& outval)
+{
+    cast_value(column, "date", dbval, outval);
+}
+
+inline void
+cast_value(std::size_t column, duckdb::Value& dbval, std::optional<duckdb::date_t>& outval)
+{
+    cast_value(column, "date", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, duckdb::dtime_t& outval)
+{
+    cast_value(column, "time", dbval, outval);
+}
+
+inline void
+cast_value(std::size_t column, duckdb::Value& dbval, std::optional<duckdb::dtime_t>& outval)
+{
+    cast_value(column, "time", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, duckdb::timestamp_t& outval)
+{
+    cast_value(column, "timestamp", dbval, outval);
+}
+
+inline void
+cast_value(std::size_t column, duckdb::Value& dbval, std::optional<duckdb::timestamp_t>& outval)
+{
+    cast_value(column, "timestamp", dbval, outval);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, duckdb::interval_t& outval)
+{
+    cast_value(column, "interval", dbval, outval);
+}
+
+inline void
+cast_value(std::size_t column, duckdb::Value& dbval, std::optional<duckdb::interval_t>& outval)
+{
+    cast_value(column, "interval", dbval, outval);
+}
+
+inline year_month_day cast_to_ymd(duckdb::date_t date)
+{
+    namespace chr = std::chrono;
+    namespace ddb = duckdb;
+
+    return chr::year_month_day{
+        chr::year(ddb::Date::ExtractYear(date)),
+        chr::month(ddb::Date::ExtractMonth(date)),
+        chr::day(ddb::Date::ExtractDay(date)),
+    };
+}
+
+inline hh_mm_ss cast_to_hms(duckdb::dtime_t time)
+{
+    namespace chr = std::chrono;
+    namespace ddb = duckdb;
+
+    int32_t hours{}, mins{}, secs{}, micros{};
+    ddb::Time::Convert(time, hours, mins, secs, micros);
+
+    chr::microseconds musecs{micros};
+    musecs += chr::seconds{hours * 3600 + mins * 60 + secs};
+
+    return hh_mm_ss{chr::duration_cast<chr::nanoseconds>(musecs)};
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, Timestamp& outval)
+{
+    namespace ddb = duckdb;
+
+    ddb::timestamp_t ddbts;
+    cast_value(column, "Timestamp", dbval, ddbts);
+
+    ddb::date_t date;
+    ddb::dtime_t time;
+    ddb::Timestamp::Convert(ddbts, date, time);
+
+    year_month_day ymd{cast_to_ymd(date)};
+    hh_mm_ss hms{cast_to_hms(time)};
+    outval = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<Timestamp>& outval)
+{
+    namespace ddb = duckdb;
+
+    std::optional<ddb::timestamp_t> ddbts;
+    cast_value(column, "Timestamp", dbval, ddbts);
+    if (ddbts)
+    {
+        ddb::date_t date;
+        ddb::dtime_t time;
+        ddb::Timestamp::Convert(*ddbts, date, time);
+
+        year_month_day ymd{cast_to_ymd(date)};
+        hh_mm_ss hms{cast_to_hms(time)};
+
+        outval = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
+    }
+    else
+    {
+        outval = std::nullopt;
+    }
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, year_month_day& outval)
+{
+    duckdb::date_t date;
+    cast_value(column, "year_month_day", dbval, date);
+    outval = cast_to_ymd(date);
+}
+
+inline void
+cast_value(std::size_t column, duckdb::Value& dbval, std::optional<year_month_day>& outval)
+{
+    std::optional<duckdb::date_t> date;
+    cast_value(column, "year_month_day", dbval, date);
+    if (date)
+        outval = cast_to_ymd(*date);
+    else
+        outval = std::nullopt;
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, hh_mm_ss& outval)
+{
+    duckdb::dtime_t time;
+    cast_value(column, "hh_mm_ss", dbval, time);
+    outval = cast_to_hms(time);
+}
+
+inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<hh_mm_ss>& outval)
+{
+    std::optional<duckdb::dtime_t> time;
+    cast_value(column, "hh_mm_ss", dbval, time);
+    if (time)
+        outval = cast_to_hms(*time);
+    else
+        outval = std::nullopt;
+}
+
+template <std::size_t ColIdx, typename DbRow, typename... Cols>
+void cast_value(const DbRow& dbRow, std::tuple<Cols...>& outRow)
+{
+    auto dbval{dbRow.iterator.chunk->GetValue(ColIdx, dbRow.row)};
+    auto& outval{std::get<ColIdx>(outRow)};
+
+    cast_value(ColIdx + 1, dbval, outval);
+
+    if constexpr (ColIdx + 1 < sizeof...(Cols))
+        cast_value<ColIdx + 1>(dbRow, outRow);
+}
+
+template <typename... Cols, typename DbRow> auto cast_row(const DbRow& dbRow)
 {
     std::tuple<std::decay_t<Cols>...> outRow;
-    castValue<0>(dbRow, outRow);
+    cast_value<0>(dbRow, outRow);
     return outRow;
 }
 
 template <typename T>
-inline constexpr bool IsValidArgumentV =
+inline constexpr bool is_valid_argument_v =
     std::is_convertible_v<T, bool> || std::is_convertible_v<T, std::optional<bool>> ||
     std::is_convertible_v<T, char> || std::is_convertible_v<T, std::optional<char>> ||
     std::is_convertible_v<T, int8_t> || std::is_convertible_v<T, std::optional<int8_t>> ||
@@ -471,62 +464,51 @@ inline constexpr bool IsValidArgumentV =
     std::is_convertible_v<T, std::optional<year_month_day>> || std::is_convertible_v<T, hh_mm_ss> ||
     std::is_convertible_v<T, std::optional<hh_mm_ss>>;
 
-template <typename T, typename... Args> constexpr bool IsValidSignature()
+template <typename T, typename... Args> constexpr bool is_valid_signature()
 {
-    constexpr bool isValidArgument = IsValidArgumentV<T>;
+    constexpr bool is_valid_arg{is_valid_argument_v<T>};
 
-    static_assert(isValidArgument, "Invalid argument type T");
+    static_assert(is_valid_arg, "Invalid argument type T");
 
-    if constexpr (isValidArgument && sizeof...(Args) > 0)
-        return IsValidSignature<Args...>();
+    if constexpr (is_valid_arg && sizeof...(Args) > 0)
+        return is_valid_signature<Args...>();
     else
-        return isValidArgument;
+        return is_valid_arg;
+}
+
+template <typename F, typename R, typename... Args>
+auto for_each_impl(std::unique_ptr<duckdb::QueryResult> result, std::function<R(Args...)>&& f)
+{
+    if constexpr (details::is_valid_signature<Args...>())
+    {
+        const uint64_t ncols{result->ColumnCount()};
+
+        if (sizeof...(Args) != ncols)
+            throw std::invalid_argument{
+                std::format("Invalid number of arguments, function has {} but query result has {}",
+                            sizeof...(Args), ncols)};
+
+        for (auto rowit{result->begin()}; rowit != result->end(); ++rowit)
+        {
+            std::apply(f, details::cast_row<Args...>(*rowit));
+        }
+    }
+
+    return *f.template target<F>();
 }
 
 } // namespace details
 
-class DuckForEach
+template <typename F> auto for_each(std::unique_ptr<duckdb::QueryResult> result, F f)
 {
-public:
-    DuckForEach(std::unique_ptr<duckdb::QueryResult> result)
-        : mResult{std::move(result)}
-    {
-        if (!mResult)
-            throw std::invalid_argument{"Invalid query result."};
+    if (!result)
+        throw std::invalid_argument{"Invalid query result."};
 
-        if (mResult->HasError())
-            throw std::runtime_error(std::format("Query error {}", mResult->GetError()));
-    }
+    if (result->HasError())
+        throw std::runtime_error(std::format("Query error {}", result->GetError()));
 
-    template <typename F> auto operator()(F f)
-    {
-        return invokeImpl<F>(std::function{f});
-    }
-
-private:
-    template <typename F, typename R, typename... Args>
-    auto invokeImpl(std::function<R(Args...)>&& f)
-    {
-        if constexpr (details::IsValidSignature<Args...>())
-        {
-            const uint64_t nCols{mResult->ColumnCount()};
-
-            if (sizeof...(Args) != nCols)
-                throw std::invalid_argument{std::format(
-                    "Invalid number of arguments, function has {} but query result has {}",
-                    sizeof...(Args), nCols)};
-
-            for (auto rowsIt{mResult->begin()}; rowsIt != mResult->end(); ++rowsIt)
-            {
-                std::apply(f, details::castRow<Args...>(*rowsIt));
-            }
-        }
-
-        return *f.template target<F>();
-    }
-
-    std::unique_ptr<duckdb::QueryResult> mResult;
-};
+    return details::for_each_impl<F>(std::move(result), std::function{f});
+}
 
 } // namespace duckforeach
 

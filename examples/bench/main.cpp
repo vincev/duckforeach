@@ -45,10 +45,11 @@ int main(int argc, char* argv[])
         auto startTime{chr::steady_clock::now()};
         size_t rowCount{0};
 
-        dfe::DuckForEach f{con.SendQuery("select symbol, ts, close, volume "
-                                         "from prices "
-                                         "order by ts")};
-        f([&](std::string&& sym, dfe::Timestamp ts, double close, int64_t volume) { ++rowCount; });
+        dfe::for_each(con.SendQuery("select symbol, ts, close, volume "
+                                    "from prices "
+                                    "order by ts"),
+                      [&](std::string&& sym, dfe::Timestamp ts, double close, int64_t volume)
+                      { ++rowCount; });
 
         auto dt{chr::duration<double>{chr::steady_clock::now() - startTime}};
         std::cout << std::format("Processed {} rows in {:.2f}s ({:.0f} rows/sec)", rowCount,

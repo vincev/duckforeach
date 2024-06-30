@@ -25,8 +25,8 @@ TEST_CASE("Test time types")
                        "  ival INTERVAL)")};
     REQUIRE_FALSE(res->HasError());
 
-    const size_t numRows{10};
-    for (size_t i{0}; i < numRows; ++i)
+    constexpr size_t NUM_ROWS{10};
+    for (size_t i{0}; i < NUM_ROWS; ++i)
     {
         auto stm{std::format("INSERT INTO t VALUES ("
                              "'2024-06-{0:02}', "
@@ -39,69 +39,71 @@ TEST_CASE("Test time types")
 
     SUBCASE("date, time, timestamp and interval")
     {
-        dfe::DuckForEach dfe{con.Query("select dtval, tmval, tsval, ival from t")};
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(
+            con.Query("select dtval, tmval, tsval, ival from t"),
+            [&](ddb::date_t dtval, ddb::dtime_t tmval, ddb::timestamp_t tsval, ddb::interval_t ival)
+            {
+                ++num_rows;
 
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](ddb::date_t dtval, ddb::dtime_t tmval, ddb::timestamp_t tsval,
-                              ddb::interval_t ival) {
-            ++rowCount;
+                CHECK_EQ(ddb::Date::ExtractYear(dtval), 2024);
+                CHECK_EQ(ddb::Date::ExtractMonth(dtval), 6);
+                CHECK_EQ(ddb::Date::ExtractDay(dtval), num_rows);
 
-            CHECK_EQ(ddb::Date::ExtractYear(dtval), 2024);
-            CHECK_EQ(ddb::Date::ExtractMonth(dtval), 6);
-            CHECK_EQ(ddb::Date::ExtractDay(dtval), rowCount);
+                int32_t hour, mins, secs, micros;
+                ddb::Time::Convert(tmval, hour, mins, secs, micros);
+                CHECK_EQ(hour, 11);
+                CHECK_EQ(mins, 30);
+                CHECK_EQ(secs, num_rows);
+                CHECK_EQ(micros, 0);
 
-            int32_t hour, mins, secs, micros;
-            ddb::Time::Convert(tmval, hour, mins, secs, micros);
-            CHECK_EQ(hour, 11);
-            CHECK_EQ(mins, 30);
-            CHECK_EQ(secs, rowCount);
-            CHECK_EQ(micros, 0);
+                ddb::date_t tsDate;
+                ddb::dtime_t tsTime;
+                ddb::Timestamp::Convert(tsval, tsDate, tsTime);
+                CHECK_EQ(tsDate, dtval);
+                CHECK_EQ(tsTime, tmval);
 
-            ddb::date_t tsDate;
-            ddb::dtime_t tsTime;
-            ddb::Timestamp::Convert(tsval, tsDate, tsTime);
-            CHECK_EQ(tsDate, dtval);
-            CHECK_EQ(tsTime, tmval);
+                CHECK_EQ(ddb::Interval::GetMilli(ival), num_rows * 3'600'000);
+            }));
 
-            CHECK_EQ(ddb::Interval::GetMilli(ival), rowCount * 3'600'000);
-        }));
-
-        CHECK_EQ(rowCount, numRows);
+        CHECK_EQ(num_rows, NUM_ROWS);
     }
 
     SUBCASE("duckforeach year_month_day, hh_mm_ss, timestamp")
     {
-        dfe::DuckForEach dfe{con.Query("select dtval, tmval, tsval from t")};
+        unsigned num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(
+            con.Query("select dtval, tmval, tsval from t"),
+            [&](dfe::year_month_day ymd, dfe::hh_mm_ss hms, dfe::Timestamp ts)
+            {
+                ++num_rows;
 
-        unsigned rowCount{0};
-        CHECK_NOTHROW(dfe([&](dfe::year_month_day ymd, dfe::hh_mm_ss hms, dfe::Timestamp ts) {
-            ++rowCount;
+                dfe::year_month_day expectedYmd{chr::year{2024}, chr::month{6}, chr::day{num_rows}};
+                CHECK_EQ(ymd, expectedYmd);
 
-            dfe::year_month_day expectedYmd{chr::year{2024}, chr::month{6}, chr::day{rowCount}};
-            CHECK_EQ(ymd, expectedYmd);
+                CHECK_EQ(hms.hours(), chr::hours{11});
+                CHECK_EQ(hms.minutes(), chr::minutes{30});
+                CHECK_EQ(hms.seconds(), chr::seconds{num_rows});
 
-            CHECK_EQ(hms.hours(), chr::hours{11});
-            CHECK_EQ(hms.minutes(), chr::minutes{30});
-            CHECK_EQ(hms.seconds(), chr::seconds{rowCount});
-
-            CHECK_EQ(ts.ymd(), ymd);
-            CHECK_EQ(ts.hms().hours(), chr::hours{11});
-            CHECK_EQ(ts.hms().minutes(), chr::minutes{30});
-            CHECK_EQ(ts.hms().seconds(), chr::seconds{rowCount});
-        }));
+                CHECK_EQ(ts.ymd(), ymd);
+                CHECK_EQ(ts.hms().hours(), chr::hours{11});
+                CHECK_EQ(ts.hms().minutes(), chr::minutes{30});
+                CHECK_EQ(ts.hms().seconds(), chr::seconds{num_rows});
+            }));
     }
 
     SUBCASE("string conversions")
     {
-        dfe::DuckForEach dfe{con.Query("select dtval, tmval, tsval, ival from t")};
-        size_t rowCount{0};
-        CHECK_NOTHROW(
-            dfe([&](std::string dtval, std::string tmval, std::string tsval, std::string ival) {
-                ++rowCount;
-                CHECK_EQ(dtval, std::format("2024-06-{:02}", rowCount));
-                CHECK_EQ(tmval, std::format("11:30:{:02}", rowCount));
-                CHECK_EQ(tsval, std::format("2024-06-{0:02} 11:30:{0:02}", rowCount));
-                CHECK_EQ(ival, std::format("{0:02}:00:00", rowCount));
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(
+            con.Query("select dtval, tmval, tsval, ival from t"),
+            [&](std::string dtval, std::string tmval, std::string tsval, std::string ival)
+            {
+                ++num_rows;
+                CHECK_EQ(dtval, std::format("2024-06-{:02}", num_rows));
+                CHECK_EQ(tmval, std::format("11:30:{:02}", num_rows));
+                CHECK_EQ(tsval, std::format("2024-06-{0:02} 11:30:{0:02}", num_rows));
+                CHECK_EQ(ival, std::format("{0:02}:00:00", num_rows));
             }));
     }
 
@@ -111,205 +113,215 @@ TEST_CASE("Test time types")
 
         SUBCASE("error on null date without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select dtval from t")};
-            CHECK_THROWS(dfe([&](ddb::date_t dtval) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select dtval from t"), [&](ddb::date_t dtval) {}));
         }
 
         SUBCASE("handle null date with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select dtval from t")};
-            size_t nullCount{0}, rowCount{0};
-            CHECK_NOTHROW(dfe([&](std::optional<ddb::date_t> dtval) {
-                if (!dtval)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    CHECK_EQ(ddb::Date::ExtractYear(*dtval), 2024);
-                    CHECK_EQ(ddb::Date::ExtractMonth(*dtval), 6);
-                    CHECK_EQ(ddb::Date::ExtractDay(*dtval), rowCount);
-                }
-            }));
+            size_t num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select dtval from t"),
+                                        [&](std::optional<ddb::date_t> dtval)
+                                        {
+                                            if (!dtval)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                CHECK_EQ(ddb::Date::ExtractYear(*dtval), 2024);
+                                                CHECK_EQ(ddb::Date::ExtractMonth(*dtval), 6);
+                                                CHECK_EQ(ddb::Date::ExtractDay(*dtval), num_rows);
+                                            }
+                                        }));
 
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("error on null time without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tmval from t")};
-            CHECK_THROWS(dfe([&](ddb::dtime_t tmval) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select tmval from t"), [&](ddb::dtime_t tmval) {}));
         }
 
         SUBCASE("handle null time with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tmval from t")};
-            size_t nullCount{0}, rowCount{0};
-            CHECK_NOTHROW(dfe([&](std::optional<ddb::dtime_t> tmval) {
-                if (!tmval)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    int32_t hour, mins, secs, micros;
-                    ddb::Time::Convert(*tmval, hour, mins, secs, micros);
-                    CHECK_EQ(hour, 11);
-                    CHECK_EQ(mins, 30);
-                    CHECK_EQ(secs, rowCount);
-                    CHECK_EQ(micros, 0);
-                }
-            }));
+            size_t num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select tmval from t"),
+                                        [&](std::optional<ddb::dtime_t> tmval)
+                                        {
+                                            if (!tmval)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                int32_t hour, mins, secs, micros;
+                                                ddb::Time::Convert(*tmval, hour, mins, secs,
+                                                                   micros);
+                                                CHECK_EQ(hour, 11);
+                                                CHECK_EQ(mins, 30);
+                                                CHECK_EQ(secs, num_rows);
+                                                CHECK_EQ(micros, 0);
+                                            }
+                                        }));
 
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("error on null timestamp without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tsval from t")};
-            CHECK_THROWS(dfe([&](ddb::timestamp_t tsval) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select tmval from t"), [&](ddb::timestamp_t tsval) {}));
         }
 
         SUBCASE("handle null timestamp with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tsval from t")};
-            unsigned nullCount{0}, rowCount{0};
-            CHECK_NOTHROW(dfe([&](std::optional<ddb::timestamp_t> tsval) {
-                namespace chr = std::chrono;
-                if (!tsval)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    ddb::date_t tsDate;
-                    ddb::dtime_t tsTime;
-                    ddb::Timestamp::Convert(*tsval, tsDate, tsTime);
+            unsigned num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select tsval from t"),
+                                        [&](std::optional<ddb::timestamp_t> tsval)
+                                        {
+                                            namespace chr = std::chrono;
+                                            if (!tsval)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                ddb::date_t tsDate;
+                                                ddb::dtime_t tsTime;
+                                                ddb::Timestamp::Convert(*tsval, tsDate, tsTime);
 
-                    CHECK_EQ(ddb::Date::ExtractYear(tsDate), 2024);
-                    CHECK_EQ(ddb::Date::ExtractMonth(tsDate), 6);
-                    CHECK_EQ(ddb::Date::ExtractDay(tsDate), rowCount);
+                                                CHECK_EQ(ddb::Date::ExtractYear(tsDate), 2024);
+                                                CHECK_EQ(ddb::Date::ExtractMonth(tsDate), 6);
+                                                CHECK_EQ(ddb::Date::ExtractDay(tsDate), num_rows);
 
-                    int32_t hour, mins, secs, micros;
-                    ddb::Time::Convert(tsTime, hour, mins, secs, micros);
-                    CHECK_EQ(hour, 11);
-                    CHECK_EQ(mins, 30);
-                    CHECK_EQ(secs, rowCount);
-                    CHECK_EQ(micros, 0);
-                }
-            }));
+                                                int32_t hour, mins, secs, micros;
+                                                ddb::Time::Convert(tsTime, hour, mins, secs,
+                                                                   micros);
+                                                CHECK_EQ(hour, 11);
+                                                CHECK_EQ(mins, 30);
+                                                CHECK_EQ(secs, num_rows);
+                                                CHECK_EQ(micros, 0);
+                                            }
+                                        }));
 
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("error on null interval without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select ival from t")};
-            CHECK_THROWS(dfe([&](ddb::interval_t dtval) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select ival from t"), [&](ddb::interval_t dtval) {}));
         }
 
         SUBCASE("handle null interval with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select ival from t")};
-            size_t nullCount{0}, rowCount{0};
-            CHECK_NOTHROW(dfe([&](std::optional<ddb::interval_t> ival) {
-                if (!ival)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    CHECK_EQ(ddb::Interval::GetMilli(*ival), rowCount * 3'600'000);
-                }
-            }));
+            size_t num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select ival from t"),
+                                        [&](std::optional<ddb::interval_t> ival)
+                                        {
+                                            if (!ival)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                CHECK_EQ(ddb::Interval::GetMilli(*ival),
+                                                         num_rows * 3'600'000);
+                                            }
+                                        }));
 
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("year_month_day without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select dtval from t")};
-            CHECK_THROWS(dfe([&](dfe::year_month_day ymd) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select dtval from t"), [&](dfe::year_month_day ymd) {}));
         }
 
         SUBCASE("year_month_day with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select dtval from t")};
-            unsigned nullCount{0}, rowCount{0};
+            unsigned num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select dtval from t"),
+                                        [&](std::optional<dfe::year_month_day> ymd)
+                                        {
+                                            if (!ymd)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                dfe::year_month_day expectedYmd{chr::year{2024},
+                                                                                chr::month{6},
+                                                                                chr::day{num_rows}};
+                                                CHECK_EQ(*ymd, expectedYmd);
+                                            }
+                                        }));
 
-            CHECK_NOTHROW(dfe([&](std::optional<dfe::year_month_day> ymd) {
-                if (!ymd)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    dfe::year_month_day expectedYmd{chr::year{2024}, chr::month{6},
-                                                    chr::day{rowCount}};
-                    CHECK_EQ(*ymd, expectedYmd);
-                }
-            }));
-
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("hh_mm_ss without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tmval from t")};
-            CHECK_THROWS(dfe([&](dfe::hh_mm_ss hms) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select tmval from t"), [&](dfe::hh_mm_ss hms) {}));
         }
 
         SUBCASE("hh_mm_ss with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tmval from t")};
-            unsigned nullCount{0}, rowCount{0};
+            unsigned num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(con.Query("select tmval from t"),
+                                        [&](std::optional<dfe::hh_mm_ss> hms)
+                                        {
+                                            if (!hms)
+                                                ++num_nulls;
+                                            else
+                                            {
+                                                ++num_rows;
+                                                CHECK_EQ(hms->hours(), chr::hours{11});
+                                                CHECK_EQ(hms->minutes(), chr::minutes{30});
+                                                CHECK_EQ(hms->seconds(), chr::seconds{num_rows});
+                                            }
+                                        }));
 
-            CHECK_NOTHROW(dfe([&](std::optional<dfe::hh_mm_ss> hms) {
-                if (!hms)
-                    ++nullCount;
-                else
-                {
-                    ++rowCount;
-                    CHECK_EQ(hms->hours(), chr::hours{11});
-                    CHECK_EQ(hms->minutes(), chr::minutes{30});
-                    CHECK_EQ(hms->seconds(), chr::seconds{rowCount});
-                }
-            }));
-
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
 
         SUBCASE("timestamp without optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tsval from t")};
-            CHECK_THROWS(dfe([&](dfe::Timestamp ts) {}));
+            CHECK_THROWS(
+                dfe::for_each(con.Query("select tsval from t"), [&](dfe::Timestamp ts) {}));
         }
 
         SUBCASE("timestamp with optional")
         {
-            dfe::DuckForEach dfe{con.Query("select tsval from t")};
-            unsigned nullCount{0}, rowCount{0};
-
-            CHECK_NOTHROW(dfe([&](std::optional<dfe::Timestamp> ts) {
-                if (!ts)
-                    ++nullCount;
-                else
+            unsigned num_nulls{0}, num_rows{0};
+            CHECK_NOTHROW(dfe::for_each(
+                con.Query("select tsval from t"),
+                [&](std::optional<dfe::Timestamp> ts)
                 {
-                    ++rowCount;
-                    dfe::year_month_day ymd{chr::year{2024}, chr::month{6}, chr::day{rowCount}};
-                    CHECK_EQ(ts->ymd(), ymd);
+                    if (!ts)
+                        ++num_nulls;
+                    else
+                    {
+                        ++num_rows;
+                        dfe::year_month_day ymd{chr::year{2024}, chr::month{6}, chr::day{num_rows}};
+                        CHECK_EQ(ts->ymd(), ymd);
 
-                    dfe::hh_mm_ss hms{chr::hours{11} + chr::minutes{30} + chr::seconds{rowCount}};
-                    CHECK_EQ(ts->hms().hours(), hms.hours());
-                    CHECK_EQ(ts->hms().minutes(), hms.minutes());
-                    CHECK_EQ(ts->hms().seconds(), hms.seconds());
-                    CHECK_EQ(ts->hms().subseconds(), hms.subseconds());
-                }
-            }));
+                        dfe::hh_mm_ss hms{chr::hours{11} + chr::minutes{30} +
+                                          chr::seconds{num_rows}};
+                        CHECK_EQ(ts->hms().hours(), hms.hours());
+                        CHECK_EQ(ts->hms().minutes(), hms.minutes());
+                        CHECK_EQ(ts->hms().seconds(), hms.seconds());
+                        CHECK_EQ(ts->hms().subseconds(), hms.subseconds());
+                    }
+                }));
 
-            CHECK_EQ(nullCount, 1);
-            CHECK_EQ(rowCount, numRows);
+            CHECK_EQ(num_nulls, 1);
+            CHECK_EQ(num_rows, NUM_ROWS);
         }
     }
 }

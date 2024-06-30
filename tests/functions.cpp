@@ -12,24 +12,24 @@ namespace dfe = duckforeach;
 
 namespace {
 
-size_t gTestNumRows;
+size_t g_num_rows;
 
-void testFunction(std::string sval, int32_t ival, dfe::Timestamp ts)
+void test_function(std::string sval, int32_t ival, dfe::Timestamp ts)
 {
-    gTestNumRows = ival;
+    g_num_rows = ival;
 }
 
 struct TestFunctionObject
 {
-    std::string lastSval;
-    int32_t lastIval;
-    dfe::Timestamp lastTs;
+    std::string sval;
+    int32_t ival;
+    dfe::Timestamp tsval;
 
-    void operator()(std::string sval, int32_t ival, dfe::Timestamp ts)
+    void operator()(std::string s, int32_t i, dfe::Timestamp ts)
     {
-        lastSval = sval;
-        lastIval = ival;
-        lastTs = ts;
+        sval = s;
+        ival = i;
+        tsval = ts;
     }
 };
 
@@ -46,8 +46,8 @@ TEST_CASE("Test iterating function types")
                        "  tsval TIMESTAMP)")};
     REQUIRE_FALSE(res->HasError());
 
-    const size_t numRows{10};
-    for (size_t i{0}; i < numRows; ++i)
+    constexpr size_t NUM_ROWS{10};
+    for (size_t i{0}; i < NUM_ROWS; ++i)
     {
         auto stm{std::format("INSERT INTO t VALUES ("
                              "'label{0}', "
@@ -59,28 +59,24 @@ TEST_CASE("Test iterating function types")
 
     SUBCASE("iterate with lambda")
     {
-        dfe::DuckForEach dfe{con.Query("select sval, ival, tsval from t")};
-
-        size_t rowCount{0};
-        CHECK_NOTHROW(dfe([&](std::string sval, int32_t ival, dfe::Timestamp ts) { ++rowCount; }));
-        CHECK_EQ(rowCount, numRows);
+        size_t num_rows{0};
+        CHECK_NOTHROW(dfe::for_each(con.Query("select sval, ival, tsval from t"),
+                                    [&](std::string sval, int32_t ival, dfe::Timestamp ts)
+                                    { ++num_rows; }));
+        CHECK_EQ(num_rows, NUM_ROWS);
     }
 
     SUBCASE("iterate with function pointer")
     {
-        dfe::DuckForEach dfe{con.Query("select sval, ival, tsval from t")};
-        CHECK_NOTHROW(dfe(testFunction));
-        CHECK_EQ(gTestNumRows, numRows);
+        CHECK_NOTHROW(dfe::for_each(con.Query("select sval, ival, tsval from t"), test_function));
+        CHECK_EQ(g_num_rows, NUM_ROWS);
     }
 
     SUBCASE("iterate with function object")
     {
-        dfe::DuckForEach dfe{con.Query("select sval, ival, tsval from t")};
-
-        auto tfo{dfe(TestFunctionObject{})};
-
-        CHECK_EQ(tfo.lastIval, numRows);
-        CHECK_EQ(tfo.lastSval, std::format("label{}", numRows));
-        CHECK_EQ(tfo.lastTs.ymd().day(), chr::day{numRows});
+        auto tfo{dfe::for_each(con.Query("select sval, ival, tsval from t"), TestFunctionObject{})};
+        CHECK_EQ(tfo.ival, NUM_ROWS);
+        CHECK_EQ(tfo.sval, std::format("label{}", NUM_ROWS));
+        CHECK_EQ(tfo.tsval.ymd().day(), chr::day{NUM_ROWS});
     }
 }
