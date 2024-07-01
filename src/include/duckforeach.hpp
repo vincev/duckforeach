@@ -142,26 +142,15 @@ inline void cast_value(std::size_t column, duckdb::Value& dbval, char& outval)
 
 inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<char>& outval)
 {
-    outval.reset();
-    if (dbval.type().id() == duckdb::LogicalTypeId::TINYINT)
+    if (!dbval.IsNull())
     {
-        std::optional<int8_t> v;
-        cast_value(column, "char", dbval, v);
-        if (v)
-            outval = static_cast<char>(*v);
-    }
-    else if (dbval.type().id() == duckdb::LogicalTypeId::UTINYINT)
-    {
-        std::optional<uint8_t> v;
-        cast_value(column, "char", dbval, v);
-        if (v)
-            outval = static_cast<char>(*v);
+        char c;
+        cast_value(column, dbval, c);
+        outval = c;
     }
     else
     {
-        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                " to char",
-                                                column, dbval.type().ToString())};
+        outval = std::nullopt;
     }
 }
 
@@ -347,36 +336,47 @@ inline hh_mm_ss cast_to_hms(duckdb::dtime_t time)
 
 inline void cast_value(std::size_t column, duckdb::Value& dbval, Timestamp& outval)
 {
+    namespace chr = std::chrono;
     namespace ddb = duckdb;
 
-    ddb::timestamp_t ddbts;
-    cast_value(column, "Timestamp", dbval, ddbts);
+    if (dbval.type().id() == duckdb::LogicalTypeId::TIMESTAMP_NS)
+    {
+        uint64_t epoch;
+        cast_value(column, "Timestamp", dbval, epoch);
 
-    ddb::date_t date;
-    ddb::dtime_t time;
-    ddb::Timestamp::Convert(ddbts, date, time);
+        ddb::timestamp_t ddbts{ddb::Timestamp::FromEpochNanoSeconds(epoch)};
 
-    year_month_day ymd{cast_to_ymd(date)};
-    hh_mm_ss hms{cast_to_hms(time)};
-    outval = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
+        ddb::date_t date;
+        ddb::dtime_t time;
+        ddb::Timestamp::Convert(ddbts, date, time);
+
+        year_month_day ymd{cast_to_ymd(date)};
+        hh_mm_ss hms{cast_to_hms(time)};
+        auto dnanos{hms.to_duration() + chr::nanoseconds{epoch % 1000}};
+        outval = Timestamp{std::chrono::sys_days{ymd} + dnanos};
+    }
+    else
+    {
+        ddb::timestamp_t ddbts;
+        cast_value(column, "Timestamp", dbval, ddbts);
+
+        ddb::date_t date;
+        ddb::dtime_t time;
+        ddb::Timestamp::Convert(ddbts, date, time);
+
+        year_month_day ymd{cast_to_ymd(date)};
+        hh_mm_ss hms{cast_to_hms(time)};
+        outval = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
+    }
 }
 
 inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<Timestamp>& outval)
 {
-    namespace ddb = duckdb;
-
-    std::optional<ddb::timestamp_t> ddbts;
-    cast_value(column, "Timestamp", dbval, ddbts);
-    if (ddbts)
+    if (!dbval.IsNull())
     {
-        ddb::date_t date;
-        ddb::dtime_t time;
-        ddb::Timestamp::Convert(*ddbts, date, time);
-
-        year_month_day ymd{cast_to_ymd(date)};
-        hh_mm_ss hms{cast_to_hms(time)};
-
-        outval = Timestamp{std::chrono::sys_days{ymd} + hms.to_duration()};
+        Timestamp ts;
+        cast_value(column, dbval, ts);
+        outval = std::move(ts);
     }
     else
     {

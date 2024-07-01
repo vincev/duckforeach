@@ -30,8 +30,8 @@ TEST_CASE("Test time types")
     {
         auto stm{std::format("INSERT INTO t VALUES ("
                              "'2024-06-{0:02}', "
-                             "'11:30:{0:02}',"
-                             "'2024-06-{0:02} 11:30:{0:02}', "
+                             "'11:30:{0:02}.123456',"
+                             "'2024-06-{0:02} 11:30:{0:02}.123456', "
                              "'{0} hours')",
                              i + 1)};
         REQUIRE_FALSE(con.Query(stm)->HasError());
@@ -55,7 +55,7 @@ TEST_CASE("Test time types")
                 CHECK_EQ(hour, 11);
                 CHECK_EQ(mins, 30);
                 CHECK_EQ(secs, num_rows);
-                CHECK_EQ(micros, 0);
+                CHECK_EQ(micros, 123456);
 
                 ddb::date_t tsDate;
                 ddb::dtime_t tsTime;
@@ -89,6 +89,7 @@ TEST_CASE("Test time types")
                 CHECK_EQ(ts.hms().hours(), chr::hours{11});
                 CHECK_EQ(ts.hms().minutes(), chr::minutes{30});
                 CHECK_EQ(ts.hms().seconds(), chr::seconds{num_rows});
+                CHECK_EQ(ts.hms().subseconds(), chr::nanoseconds{123456000});
             }));
     }
 
@@ -101,8 +102,8 @@ TEST_CASE("Test time types")
             {
                 ++num_rows;
                 CHECK_EQ(dtval, std::format("2024-06-{:02}", num_rows));
-                CHECK_EQ(tmval, std::format("11:30:{:02}", num_rows));
-                CHECK_EQ(tsval, std::format("2024-06-{0:02} 11:30:{0:02}", num_rows));
+                CHECK_EQ(tmval, std::format("11:30:{:02}.123456", num_rows));
+                CHECK_EQ(tsval, std::format("2024-06-{0:02} 11:30:{0:02}.123456", num_rows));
                 CHECK_EQ(ival, std::format("{0:02}:00:00", num_rows));
             }));
     }
@@ -161,7 +162,7 @@ TEST_CASE("Test time types")
                                                 CHECK_EQ(hour, 11);
                                                 CHECK_EQ(mins, 30);
                                                 CHECK_EQ(secs, num_rows);
-                                                CHECK_EQ(micros, 0);
+                                                CHECK_EQ(micros, 123456);
                                             }
                                         }));
 
@@ -201,7 +202,7 @@ TEST_CASE("Test time types")
                                                 CHECK_EQ(hour, 11);
                                                 CHECK_EQ(mins, 30);
                                                 CHECK_EQ(secs, num_rows);
-                                                CHECK_EQ(micros, 0);
+                                                CHECK_EQ(micros, 123456);
                                             }
                                         }));
 
@@ -312,7 +313,7 @@ TEST_CASE("Test time types")
                         CHECK_EQ(ts->ymd(), ymd);
 
                         dfe::hh_mm_ss hms{chr::hours{11} + chr::minutes{30} +
-                                          chr::seconds{num_rows}};
+                                          chr::seconds{num_rows} + chr::microseconds{123456}};
                         CHECK_EQ(ts->hms().hours(), hms.hours());
                         CHECK_EQ(ts->hms().minutes(), hms.minutes());
                         CHECK_EQ(ts->hms().seconds(), hms.seconds());
@@ -324,6 +325,39 @@ TEST_CASE("Test time types")
             CHECK_EQ(num_rows, NUM_ROWS);
         }
     }
+}
+
+TEST_CASE("Test nanosecond timestamp")
+{
+    ddb::DuckDB db;
+    ddb::Connection con{db};
+
+    // Currently inserting nanoseconds truncate the duration to micros this test
+    // checks the conversion for a duckdb::Value with type TIMESTAMP_NS.
+    auto res{con.Query("CREATE TABLE t (tsval TIMESTAMP_NS)")};
+    REQUIRE_FALSE(res->HasError());
+
+    constexpr size_t NUM_ROWS{10};
+    for (size_t i{0}; i < NUM_ROWS; ++i)
+    {
+        auto stm{std::format("INSERT INTO t VALUES ("
+                             "'2024-06-{0:02} 11:30:{0:02}.123456{0:03}')",
+                             i + 1)};
+        REQUIRE_FALSE(con.Query(stm)->HasError());
+    }
+
+    size_t num_rows{0};
+    CHECK_NOTHROW(dfe::for_each(con.Query("select tsval from t"),
+                                [&](dfe::Timestamp ts)
+                                {
+                                    ++num_rows;
+                                    CHECK_EQ(ts.hms().hours(), chr::hours{11});
+                                    CHECK_EQ(ts.hms().minutes(), chr::minutes{30});
+                                    CHECK_EQ(ts.hms().seconds(), chr::seconds{num_rows});
+                                    CHECK_EQ(ts.hms().subseconds(), chr::nanoseconds{123456000});
+                                }));
+
+    CHECK_EQ(num_rows, NUM_ROWS);
 }
 
 TEST_CASE("Test Timestamp comparisons")
