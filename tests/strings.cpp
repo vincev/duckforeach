@@ -139,3 +139,39 @@ TEST_CASE("Test strings")
                                     }));
     }
 }
+
+TEST_CASE("Test null strings")
+{
+    ddb::DuckDB db;
+    ddb::Connection con{db};
+
+    auto res{con.Query("CREATE TABLE t (strval VARCHAR)")};
+    REQUIRE_FALSE(res->HasError());
+
+    constexpr size_t NUM_ROWS{10};
+
+    for (size_t i{0}; i < NUM_ROWS; ++i)
+    {
+        auto stm{std::format("INSERT INTO t VALUES ('label{0}')", i + 1)};
+        REQUIRE_FALSE(con.Query(stm)->HasError());
+    }
+
+    REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null)")->HasError());
+
+    size_t num_rows{0}, num_nulls{0};
+    CHECK_NOTHROW(dfe::for_each(con.Query("select strval from t"),
+                                [&](std::optional<std::string> s)
+                                {
+                                    if (s)
+                                    {
+                                        ++num_rows;
+                                        CHECK_EQ(*s, std::format("label{}", num_rows));
+                                    }
+                                    else
+                                    {
+                                        ++num_nulls;
+                                    }
+                                }));
+    CHECK_EQ(num_rows, NUM_ROWS);
+    CHECK_EQ(num_nulls, 1);
+}
