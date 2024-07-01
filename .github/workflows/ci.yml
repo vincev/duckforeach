@@ -1,14 +1,16 @@
-name: ci
+name: Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.sha }}
+  cancel-in-progress: true
 
 on:
   push:
     paths-ignore:
       - "**.md"
-      - docs/**
   pull_request:
     paths-ignore:
       - "**.md"
-      - docs/**
   # manual trigger
   workflow_dispatch:
 
@@ -17,10 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      # Set fail-fast to false to ensure that feedback is delivered for all matrix
-      # combinations. Consider changing this to true when your workflow is
-      # stable.
-      fail-fast: false
+      fail-fast: true
 
       matrix:
         os: [ubuntu-24.04]
