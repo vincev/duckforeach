@@ -15,6 +15,8 @@
 
 namespace duckforeach {
 
+inline constexpr std::tuple VERSION{0, 1, 0};
+
 using year_month_day = std::chrono::year_month_day;
 using hh_mm_ss = std::chrono::hh_mm_ss<std::chrono::nanoseconds>;
 

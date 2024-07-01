@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(DuckForEach VERSION 0.1.0 LANGUAGES C CXX)
+project(DuckForEach LANGUAGES C CXX)
 enable_testing()
 
 set(CMAKE_CXX_STANDARD 20)
