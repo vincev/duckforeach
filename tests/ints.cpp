@@ -391,3 +391,31 @@ TEST_CASE("Test int64, uint64")
         CHECK_EQ(num_rows, sints.size());
     }
 }
+
+TEST_CASE("bool")
+{
+    ddb::DuckDB db;
+    ddb::Connection con{db};
+
+    auto res{con.Query("CREATE TABLE t (ival INTEGER)")};
+    REQUIRE_FALSE(res->HasError());
+
+    ddb::Appender appender{con, "t"};
+    appender.AppendRow(-1);
+    appender.AppendRow(0);
+    appender.AppendRow(1);
+    appender.Close();
+
+    size_t num_true{0}, num_false{0};
+    CHECK_NOTHROW(dfe::for_each(con.Query("select ival from t"),
+                                [&](bool bval)
+                                {
+                                    if (bval)
+                                        ++num_true;
+                                    else
+                                        ++num_false;
+                                }));
+
+    CHECK_EQ(num_false, 1);
+    CHECK_EQ(num_true + num_false, 3);
+}
