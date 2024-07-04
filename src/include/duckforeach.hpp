@@ -118,42 +118,6 @@ inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<b
     cast_value(column, "bool", dbval, outval);
 }
 
-inline void cast_value(std::size_t column, duckdb::Value& dbval, char& outval)
-{
-    if (dbval.type().id() == duckdb::LogicalTypeId::TINYINT)
-    {
-        int8_t v;
-        cast_value(column, "char", dbval, v);
-        outval = static_cast<char>(v);
-    }
-    else if (dbval.type().id() == duckdb::LogicalTypeId::UTINYINT)
-    {
-        uint8_t v;
-        cast_value(column, "char", dbval, v);
-        outval = static_cast<char>(v);
-    }
-    else
-    {
-        throw std::invalid_argument{std::format("Cannot convert value at column {} of type {}"
-                                                " to char",
-                                                column, dbval.type().ToString())};
-    }
-}
-
-inline void cast_value(std::size_t column, duckdb::Value& dbval, std::optional<char>& outval)
-{
-    if (!dbval.IsNull())
-    {
-        char c;
-        cast_value(column, dbval, c);
-        outval = c;
-    }
-    else
-    {
-        outval = std::nullopt;
-    }
-}
-
 inline void cast_value(std::size_t column, duckdb::Value& dbval, int8_t& outval)
 {
     cast_value(column, "int8", dbval, outval);
@@ -440,35 +404,30 @@ template <typename... Cols, typename DbRow> auto cast_row(const DbRow& dbRow)
 
 template <typename T>
 inline constexpr bool is_valid_argument_v =
-    std::is_convertible_v<T, bool> || std::is_convertible_v<T, std::optional<bool>> ||
-    std::is_convertible_v<T, char> || std::is_convertible_v<T, std::optional<char>> ||
-    std::is_convertible_v<T, int8_t> || std::is_convertible_v<T, std::optional<int8_t>> ||
-    std::is_convertible_v<T, int16_t> || std::is_convertible_v<T, std::optional<int16_t>> ||
-    std::is_convertible_v<T, int32_t> || std::is_convertible_v<T, std::optional<int32_t>> ||
-    std::is_convertible_v<T, int64_t> || std::is_convertible_v<T, std::optional<int64_t>> ||
-    std::is_convertible_v<T, uint8_t> || std::is_convertible_v<T, std::optional<uint8_t>> ||
-    std::is_convertible_v<T, uint16_t> || std::is_convertible_v<T, std::optional<uint16_t>> ||
-    std::is_convertible_v<T, uint32_t> || std::is_convertible_v<T, std::optional<uint32_t>> ||
-    std::is_convertible_v<T, uint64_t> || std::is_convertible_v<T, std::optional<uint64_t>> ||
-    std::is_convertible_v<T, double> || std::is_convertible_v<T, std::optional<double>> ||
-    std::is_convertible_v<T, float> || std::is_convertible_v<T, std::optional<float>> ||
-    std::is_convertible_v<T, std::string> || std::is_convertible_v<T, std::optional<std::string>> ||
-    std::is_convertible_v<T, duckdb::date_t> ||
-    std::is_convertible_v<T, std::optional<duckdb::date_t>> ||
-    std::is_convertible_v<T, duckdb::dtime_t> ||
-    std::is_convertible_v<T, std::optional<duckdb::dtime_t>> ||
-    std::is_convertible_v<T, duckdb::timestamp_t> ||
-    std::is_convertible_v<T, std::optional<duckdb::timestamp_t>> ||
-    std::is_convertible_v<T, duckdb::interval_t> ||
-    std::is_convertible_v<T, std::optional<duckdb::interval_t>> ||
-    std::is_convertible_v<T, Timestamp> || std::is_convertible_v<T, std::optional<Timestamp>> ||
-    std::is_convertible_v<T, year_month_day> ||
-    std::is_convertible_v<T, std::optional<year_month_day>> || std::is_convertible_v<T, hh_mm_ss> ||
-    std::is_convertible_v<T, std::optional<hh_mm_ss>>;
+    std::is_same_v<T, bool> || std::is_same_v<T, std::optional<bool>> ||
+    std::is_same_v<T, int8_t> || std::is_same_v<T, std::optional<int8_t>> ||
+    std::is_same_v<T, int16_t> || std::is_same_v<T, std::optional<int16_t>> ||
+    std::is_same_v<T, int32_t> || std::is_same_v<T, std::optional<int32_t>> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, std::optional<int64_t>> ||
+    std::is_same_v<T, uint8_t> || std::is_same_v<T, std::optional<uint8_t>> ||
+    std::is_same_v<T, uint16_t> || std::is_same_v<T, std::optional<uint16_t>> ||
+    std::is_same_v<T, uint32_t> || std::is_same_v<T, std::optional<uint32_t>> ||
+    std::is_same_v<T, uint64_t> || std::is_same_v<T, std::optional<uint64_t>> ||
+    std::is_same_v<T, double> || std::is_same_v<T, std::optional<double>> ||
+    std::is_same_v<T, float> || std::is_same_v<T, std::optional<float>> ||
+    std::is_same_v<T, std::string> || std::is_same_v<T, std::optional<std::string>> ||
+    std::is_same_v<T, duckdb::date_t> || std::is_same_v<T, std::optional<duckdb::date_t>> ||
+    std::is_same_v<T, duckdb::dtime_t> || std::is_same_v<T, std::optional<duckdb::dtime_t>> ||
+    std::is_same_v<T, duckdb::timestamp_t> ||
+    std::is_same_v<T, std::optional<duckdb::timestamp_t>> ||
+    std::is_same_v<T, duckdb::interval_t> || std::is_same_v<T, std::optional<duckdb::interval_t>> ||
+    std::is_same_v<T, Timestamp> || std::is_same_v<T, std::optional<Timestamp>> ||
+    std::is_same_v<T, year_month_day> || std::is_same_v<T, std::optional<year_month_day>> ||
+    std::is_same_v<T, hh_mm_ss> || std::is_same_v<T, std::optional<hh_mm_ss>>;
 
 template <typename T, typename... Args> constexpr bool is_valid_signature()
 {
-    constexpr bool is_valid_arg{is_valid_argument_v<T>};
+    constexpr bool is_valid_arg{is_valid_argument_v<std::decay_t<T>>};
 
     static_assert(is_valid_arg, "Invalid argument type T");
 

@@ -10,7 +10,7 @@
 namespace ddb = duckdb;
 namespace dfe = duckforeach;
 
-TEST_CASE("Test int8, uint8, char")
+TEST_CASE("Test int8, uint8")
 {
     using SInt = int8_t;
     using UInt = uint8_t;
@@ -46,19 +46,6 @@ TEST_CASE("Test int8, uint8, char")
                                     {
                                         CHECK(uints.contains(uval));
                                         CHECK(sints.contains(sval));
-                                        ++num_rows;
-                                    }));
-
-        CHECK_EQ(num_rows, sints.size());
-    }
-
-    SUBCASE("conversion to char")
-    {
-        size_t num_rows{0};
-        CHECK_NOTHROW(dfe::for_each(con.Query("select uval, sval from t"),
-                                    [&](char uval, char sval)
-                                    {
-                                        CHECK(uints.contains(static_cast<UInt>(uval)));
                                         ++num_rows;
                                     }));
 
@@ -183,12 +170,6 @@ TEST_CASE("Test int16, uint16")
                                    [&](uint8_t uval, int8_t sval) {}));
     }
 
-    SUBCASE("throw on conversion to char overflow")
-    {
-        CHECK_THROWS(
-            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
-    }
-
     SUBCASE("handle nulls using optional parameters")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
@@ -271,12 +252,6 @@ TEST_CASE("Test int32, uint32")
                                    [&](uint16_t uval, int16_t sval) {}));
     }
 
-    SUBCASE("throw on conversion to char overflow")
-    {
-        CHECK_THROWS(
-            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
-    }
-
     SUBCASE("handle nulls using optional parameters")
     {
         REQUIRE_FALSE(con.Query("INSERT INTO t VALUES (null,20), (10,null);")->HasError());
@@ -357,12 +332,6 @@ TEST_CASE("Test int64, uint64")
     {
         CHECK_THROWS(dfe::for_each(con.Query("select uval, sval from t"),
                                    [&](uint32_t uval, int32_t sval) {}));
-    }
-
-    SUBCASE("throw on conversion to char overflow")
-    {
-        CHECK_THROWS(
-            dfe::for_each(con.Query("select uval, sval from t"), [&](char uval, char sval) {}));
     }
 
     SUBCASE("handle nulls using optional parameters")
