@@ -4,6 +4,12 @@
 
 #include "duckdb.hpp"
 
+#ifndef DUCKDB_AMALGAMATION
+#include "duckdb/common/types/date.hpp"
+#include "duckdb/common/types/time.hpp"
+#include "duckdb/common/types/timestamp.hpp"
+#endif
+
 #include <chrono>
 #include <format>
 #include <functional>
